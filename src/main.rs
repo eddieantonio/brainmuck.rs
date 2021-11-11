@@ -1,3 +1,5 @@
+use std::env;
+use std::fs;
 use std::io::{self, Read};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -15,8 +17,14 @@ enum Instruction {
 }
 
 fn main() -> io::Result<()> {
-    let mut source_text: Vec<u8> = Vec::new();
-    io::stdin().read_to_end(&mut source_text)?;
+    let args: Vec<_> = env::args().collect();
+
+    if args.len() != 2 {
+        println!("usage error: need exactly one argument");
+        return Ok(());
+    }
+
+    let source_text = fs::read(&args[1])?;
     let v = parse(&source_text)?;
     let mut program = coalesce(&v);
     remove_noop(&mut program);
@@ -25,7 +33,7 @@ fn main() -> io::Result<()> {
     Ok(())
 }
 
-const SIZE_OF_UNIVERSE: usize = 256;
+const SIZE_OF_UNIVERSE: usize = 4096;
 
 fn interpret(program: &[Instruction]) {
     use std::num::Wrapping;
