@@ -5,10 +5,8 @@ struct BranchID(u32);
 
 #[derive(Debug, Clone, Copy)]
 enum Instruction {
-    IncrementVal,
-    DecrementVal,
-    IncrementAddr,
-    DecrementAddr,
+    ChangeVal(i32),
+    ChangeAddr(i32),
     PrintChar,
     GetChar,
     StartBranch(BranchID),
@@ -33,10 +31,10 @@ fn parse(source_text: &[u8]) -> Result<Vec<Instruction>, io::Error> {
     Ok(source_text
         .iter()
         .map(|byte| match byte {
-            b'+' => Some(IncrementVal),
-            b'-' => Some(DecrementVal),
-            b'>' => Some(IncrementAddr),
-            b'<' => Some(DecrementAddr),
+            b'+' => Some(ChangeVal(1)),
+            b'-' => Some(ChangeVal(-1)),
+            b'>' => Some(ChangeAddr(1)),
+            b'<' => Some(ChangeAddr(-1)),
             b'.' => Some(PrintChar),
             b',' => Some(GetChar),
             b'[' => Some(StartBranch(branches.next())),
