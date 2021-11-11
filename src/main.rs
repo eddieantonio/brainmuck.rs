@@ -15,15 +15,18 @@ enum Instruction {
     EndBranch(BranchID),
 }
 
-fn main() {
+fn main() -> io::Result<()> {
     use Instruction::*;
 
     let mut branch_stack: Vec<BranchID> = Vec::new();
     let mut next_branch_id = 0u32;
 
-    let v: Vec<_> = io::stdin()
-        .bytes()
-        .map(|byte| match byte.expect("read from stdin") {
+    let mut source_text: Vec<u8> = Vec::new();
+    io::stdin().read_to_end(&mut source_text)?;
+
+    let v: Vec<Instruction> = source_text
+        .iter()
+        .map(|byte| match byte {
             b'+' => Some(IncrementVal),
             b'-' => Some(DecrementVal),
             b'>' => Some(IncrementAddr),
@@ -47,4 +50,6 @@ fn main() {
         .collect();
 
     println!("{:#?}", v);
+
+    Ok(())
 }
