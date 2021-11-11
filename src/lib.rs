@@ -1,6 +1,8 @@
+use std::collections::HashMap;
+use std::fmt;
 use std::io;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Hash, Copy, PartialEq, Eq)]
 pub struct BranchID(u32);
 
 #[derive(Debug, Clone, Copy)]
@@ -12,6 +14,21 @@ pub enum Instruction {
     StartBranch(BranchID),
     EndBranch(BranchID),
     NoOp,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct BranchTarget(usize);
+
+#[derive(Debug, Clone, Copy)]
+pub enum ThreeAddressCode {
+    ChangeVal(u8),
+    ChangeAddr(i32),
+    PrintChar,
+    GetChar,
+    BranchIfZero(BranchTarget),
+    BranchTo(BranchTarget),
+    NoOp,
+    Terminate,
 }
 
 #[derive(Debug)]
@@ -59,6 +76,56 @@ pub fn optimize(v: &[Instruction]) -> Vec<Instruction> {
     remove_noop(&mut program);
 
     program
+}
+
+pub fn lower(instructions: &[Instruction]) -> Vec<ThreeAddressCode> {
+    let mut conditional_branch_targets = HashMap::new();
+    let mut unconditional_branch_targets = HashMap::new();
+
+    for (ip, instr) in instructions.iter().enumerate() {
+        match instr {
+            Instruction::StartBranch(branch) => {
+                unconditional_branch_targets.insert(branch, BranchTarget(ip));
+            }
+            Instruction::EndBranch(branch) => {
+                conditional_branch_targets.insert(branch, BranchTarget(ip + 1));
+            }
+            _ => (),
+        }
+    }
+
+    let mut tac = Vec::new();
+    for &instr in instructions {
+        tac.push(match instr {
+            Instruction::ChangeVal(val) => ThreeAddressCode::ChangeVal((val & 0xFF) as u8),
+            Instruction::ChangeAddr(incr) => ThreeAddressCode::ChangeAddr(incr as i32),
+            Instruction::PrintChar => ThreeAddressCode::PrintChar,
+            Instruction::GetChar => ThreeAddressCode::GetChar,
+            Instruction::StartBranch(branch) => {
+                let target = *conditional_branch_targets
+                    .get(&branch)
+                    .expect("Branch target does not exist");
+                ThreeAddressCode::BranchIfZero(target)
+            }
+            Instruction::EndBranch(branch) => {
+                let target = *unconditional_branch_targets
+                    .get(&branch)
+                    .expect("Branch target does not exist");
+                ThreeAddressCode::BranchTo(target)
+            }
+            Instruction::NoOp => ThreeAddressCode::NoOp,
+        })
+    }
+
+    tac.push(ThreeAddressCode::Terminate);
+
+    tac
+}
+
+pub fn disassemble(code: &[ThreeAddressCode]) {
+    for (i, instr) in code.iter().enumerate() {
+        println!("{:4}: {}", i, instr);
+    }
 }
 
 fn coalesce(instructions: &[Instruction]) -> Vec<Instruction> {
@@ -124,5 +191,21 @@ impl BranchStack {
 
     pub fn pop(&mut self) -> Option<BranchID> {
         self.stack.pop()
+    }
+}
+
+impl fmt::Display for ThreeAddressCode {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use ThreeAddressCode::*;
+        match self {
+            ChangeVal(amount) => write!(f, "[bp] <- [bp] + #{}", amount),
+            ChangeAddr(amount) => write!(f, "bp <- bp + #{}", amount),
+            PrintChar => write!(f, "putchar [bp]"),
+            GetChar => write!(f, "getchar [bp]"),
+            BranchIfZero(target) => write!(f, "beq {}", target.0),
+            BranchTo(target) => write!(f, "b {}", target.0),
+            NoOp => write!(f, "nop"),
+            Terminate => write!(f, "ret"),
+        }
     }
 }
