@@ -18,10 +18,10 @@ fn main() -> io::Result<()> {
     let mut source_text: Vec<u8> = Vec::new();
     io::stdin().read_to_end(&mut source_text)?;
     let v = parse(&source_text)?;
-    let opt = coalesce(&v);
-    let better = remove_noop(&opt);
+    let mut opt = coalesce(&v);
+    remove_noop(&mut opt);
 
-    println!("{:#?}", better);
+    println!("{:#?}", opt);
 
     Ok(())
 }
@@ -67,11 +67,8 @@ fn coalesce(instructions: &Vec<Instruction>) -> Vec<Instruction> {
     result
 }
 
-fn remove_noop(v: &Vec<Instruction>) -> Vec<Instruction> {
-    v.iter()
-        .map(|instr| *instr)
-        .filter(|instr| !matches!(instr, Instruction::NoOp))
-        .collect()
+fn remove_noop(v: &mut Vec<Instruction>) {
+    v.retain(|instr| !matches!(instr, Instruction::NoOp));
 }
 
 trait LastNonEmptyVector<T> {
