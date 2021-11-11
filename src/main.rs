@@ -28,8 +28,7 @@ fn main() -> io::Result<()> {
 fn parse(source_text: &[u8]) -> Result<Vec<Instruction>, io::Error> {
     use Instruction::*;
 
-    let mut branch_stack: Vec<BranchID> = Vec::new();
-    let mut next_branch_id = 0u32;
+    let mut branches = BranchStack::new();
 
     Ok(source_text
         .iter()
@@ -40,14 +39,8 @@ fn parse(source_text: &[u8]) -> Result<Vec<Instruction>, io::Error> {
             b'<' => Some(DecrementAddr),
             b'.' => Some(PrintChar),
             b',' => Some(GetChar),
-            b'[' => {
-                let current_branch = BranchID(next_branch_id);
-                next_branch_id += 1;
-                branch_stack.push(current_branch);
-
-                Some(StartBranch(current_branch))
-            }
-            b']' => match branch_stack.pop() {
+            b'[' => Some(StartBranch(branches.next())),
+            b']' => match branches.pop() {
                 Some(branch) => Some(EndBranch(branch)),
                 None => panic!("unbalanced branches is not implemented"),
             },
@@ -55,4 +48,30 @@ fn parse(source_text: &[u8]) -> Result<Vec<Instruction>, io::Error> {
         })
         .flatten()
         .collect())
+}
+
+struct BranchStack {
+    stack: Vec<BranchID>,
+    next_id: u32,
+}
+
+impl BranchStack {
+    fn new() -> Self {
+        Self {
+            stack: Vec::new(),
+            next_id: 0,
+        }
+    }
+
+    pub fn next(&mut self) -> BranchID {
+        let current_branch = BranchID(self.next_id);
+        self.next_id += 1;
+        self.stack.push(current_branch);
+
+        current_branch
+    }
+
+    pub fn pop(&mut self) -> Option<BranchID> {
+        self.stack.pop()
+    }
 }
