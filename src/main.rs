@@ -25,10 +25,9 @@ fn main() -> Result<(), CompilationError> {
 const SIZE_OF_UNIVERSE: usize = 4096;
 
 fn interpret(program: &[ThreeAddressCode]) {
-    use std::num::Wrapping;
     use ThreeAddressCode::*;
 
-    let mut universe = [Wrapping(0u8); SIZE_OF_UNIVERSE];
+    let mut universe = [0u8; SIZE_OF_UNIVERSE];
     let mut current_address = 0;
     let mut program_counter = 0;
 
@@ -36,7 +35,7 @@ fn interpret(program: &[ThreeAddressCode]) {
         program_counter = match program[program_counter] {
             NoOp => program_counter + 1,
             ChangeVal(val) => {
-                universe[current_address] += Wrapping((val & 0xFF) as u8);
+                universe[current_address] = val.wrapping_add(universe[current_address]);
 
                 program_counter + 1
             }
@@ -54,7 +53,7 @@ fn interpret(program: &[ThreeAddressCode]) {
                 program_counter + 1
             }
             PrintChar => {
-                let c = universe[current_address].0 as char;
+                let c = universe[current_address] as char;
                 print!("{}", c);
 
                 program_counter + 1
@@ -64,12 +63,12 @@ fn interpret(program: &[ThreeAddressCode]) {
                 io::stdin()
                     .read_exact(&mut one_byte)
                     .expect("could not read even a single byte!");
-                universe[current_address] = Wrapping(one_byte[0]);
+                universe[current_address] = one_byte[0];
 
                 program_counter + 1
             }
             BranchIfZero(target) => {
-                if universe[current_address].0 == 0 {
+                if universe[current_address] == 0 {
                     target.into()
                 } else {
                     program_counter + 1
