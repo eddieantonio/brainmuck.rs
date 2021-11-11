@@ -86,21 +86,7 @@ fn interpret(program: &[Instruction]) {
                     program_counter + 1
                 }
             }
-            EndBranch(end) => {
-                let mut target = None;
-
-                for i in (0..program_counter).rev() {
-                    match program[i] {
-                        StartBranch(start) if start == end => {
-                            target.replace(i);
-                            break;
-                        }
-                        _ => continue,
-                    }
-                }
-
-                target.expect("Somehow did not find start of branch")
-            }
+            EndBranch(end) => find_start_branch_target(end, &program, program_counter),
         }
     }
 }
@@ -118,6 +104,22 @@ fn find_end_branch_target(start: BranchID, program: &[Instruction], pc: usize) -
     assert!(matches!(program[pc + increment], Instruction::EndBranch(_)));
 
     pc + increment + 1
+}
+
+fn find_start_branch_target(end: BranchID, program: &[Instruction], pc: usize) -> usize {
+    let mut target = None;
+
+    for i in (0..pc).rev() {
+        match program[i] {
+            Instruction::StartBranch(start) if start == end => {
+                target.replace(i);
+                break;
+            }
+            _ => continue,
+        }
+    }
+
+    target.expect("Somehow did not find start of branch")
 }
 
 fn parse(source_text: &[u8]) -> Result<Vec<Instruction>, io::Error> {
