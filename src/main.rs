@@ -16,7 +16,13 @@ enum Instruction {
     NoOp,
 }
 
-fn main() -> io::Result<()> {
+#[derive(Debug)]
+enum CompilationError {
+    IOError(io::Error),
+    TooManyCloseBrackets,
+}
+
+fn main() -> Result<(), CompilationError> {
     let args: Vec<_> = env::args().collect();
 
     if args.len() != 2 {
@@ -30,6 +36,12 @@ fn main() -> io::Result<()> {
 
     interpret(&program);
     Ok(())
+}
+
+impl From<io::Error> for CompilationError {
+    fn from(err: io::Error) -> CompilationError {
+        CompilationError::IOError(err)
+    }
 }
 
 const SIZE_OF_UNIVERSE: usize = 4096;
@@ -121,12 +133,14 @@ fn find_start_branch_target(end: BranchID, program: &[Instruction], pc: usize) -
     target.expect("Somehow did not find start of branch")
 }
 
-fn parse(source_text: &[u8]) -> Result<Vec<Instruction>, io::Error> {
+fn parse(source_text: &[u8]) -> Result<Vec<Instruction>, CompilationError> {
     use Instruction::*;
 
     let mut branches = BranchStack::new();
 
-    Ok(source_text
+    let mut HACK_too_many_branches = false;
+
+    let program: Vec<_> = source_text
         .iter()
         .map(|byte| match byte {
             b'+' => Some(ChangeVal(1)),
@@ -138,12 +152,21 @@ fn parse(source_text: &[u8]) -> Result<Vec<Instruction>, io::Error> {
             b'[' => Some(StartBranch(branches.next())),
             b']' => match branches.pop() {
                 Some(branch) => Some(EndBranch(branch)),
-                None => panic!("unbalanced branches is not implemented"),
+                None => {
+                    HACK_too_many_branches = true;
+                    None
+                }
             },
             _ => None,
         })
         .flatten()
-        .collect())
+        .collect();
+
+    if HACK_too_many_branches {
+        Err(CompilationError::TooManyCloseBrackets)
+    } else {
+        Ok(program)
+    }
 }
 
 fn coalesce(instructions: &[Instruction]) -> Vec<Instruction> {
