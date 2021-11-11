@@ -81,18 +81,7 @@ fn interpret(program: &[Instruction]) {
             }
             StartBranch(start) => {
                 if universe[current_address].0 == 0 {
-                    let mut increment = 0;
-
-                    for &instr in &program[program_counter..] {
-                        match instr {
-                            EndBranch(end) if start == end => break,
-                            _ => increment += 1,
-                        }
-                    }
-                    assert!(increment > 0);
-                    assert!(matches!(program[program_counter + increment], EndBranch(_)));
-
-                    program_counter + increment + 1
+                    find_end_branch_target(start, &program, program_counter)
                 } else {
                     program_counter + 1
                 }
@@ -114,6 +103,21 @@ fn interpret(program: &[Instruction]) {
             }
         }
     }
+}
+
+fn find_end_branch_target(start: BranchID, program: &[Instruction], pc: usize) -> usize {
+    let mut increment = 0;
+
+    for &instr in &program[pc..] {
+        match instr {
+            Instruction::EndBranch(end) if start == end => break,
+            _ => increment += 1,
+        }
+    }
+    assert!(increment > 0);
+    assert!(matches!(program[pc + increment], Instruction::EndBranch(_)));
+
+    pc + increment + 1
 }
 
 fn parse(source_text: &[u8]) -> Result<Vec<Instruction>, io::Error> {
