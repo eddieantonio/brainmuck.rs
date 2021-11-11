@@ -11,14 +11,17 @@ enum Instruction {
     GetChar,
     StartBranch(BranchID),
     EndBranch(BranchID),
+    NoOp,
 }
 
 fn main() -> io::Result<()> {
     let mut source_text: Vec<u8> = Vec::new();
     io::stdin().read_to_end(&mut source_text)?;
     let v = parse(&source_text)?;
+    let opt = coalesce(&v);
+    let better = remove_noop(&opt);
 
-    println!("{:#?}", v);
+    println!("{:#?}", better);
 
     Ok(())
 }
@@ -46,6 +49,49 @@ fn parse(source_text: &[u8]) -> Result<Vec<Instruction>, io::Error> {
         })
         .flatten()
         .collect())
+}
+
+fn coalesce(instructions: &Vec<Instruction>) -> Vec<Instruction> {
+    use Instruction::*;
+
+    let mut result = vec![NoOp];
+
+    for &instr in instructions {
+        match (result.last(), instr) {
+            (ChangeVal(x), ChangeVal(y)) => result.replace_last(ChangeVal(x + y)),
+            (ChangeAddr(x), ChangeAddr(y)) => result.replace_last(ChangeVal(x + y)),
+            _ => result.push(instr),
+        }
+    }
+
+    result
+}
+
+fn remove_noop(v: &Vec<Instruction>) -> Vec<Instruction> {
+    v.iter()
+        .map(|instr| *instr)
+        .filter(|instr| !matches!(instr, Instruction::NoOp))
+        .collect()
+}
+
+trait LastNonEmptyVector<T> {
+    fn last(&self) -> T;
+
+    fn replace_last(&mut self, x: T);
+}
+
+impl<T> LastNonEmptyVector<T> for Vec<T>
+where
+    T: Copy,
+{
+    fn last(&self) -> T {
+        self[self.len() - 1]
+    }
+
+    fn replace_last(&mut self, x: T) {
+        let n = self.len();
+        self[n - 1] = x;
+    }
 }
 
 struct BranchStack {
