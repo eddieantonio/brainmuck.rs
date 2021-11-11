@@ -25,9 +25,8 @@ fn main() -> io::Result<()> {
     }
 
     let source_text = fs::read(&args[1])?;
-    let v = parse(&source_text)?;
-    let mut program = coalesce(&v);
-    remove_noop(&mut program);
+    let program = parse(&source_text)?;
+    let program = optimize(&program);
 
     interpret(&program);
     Ok(())
@@ -147,7 +146,7 @@ fn parse(source_text: &[u8]) -> Result<Vec<Instruction>, io::Error> {
         .collect())
 }
 
-fn coalesce(instructions: &Vec<Instruction>) -> Vec<Instruction> {
+fn coalesce(instructions: &[Instruction]) -> Vec<Instruction> {
     use Instruction::*;
 
     let mut result = vec![NoOp];
@@ -165,6 +164,13 @@ fn coalesce(instructions: &Vec<Instruction>) -> Vec<Instruction> {
 
 fn remove_noop(v: &mut Vec<Instruction>) {
     v.retain(|instr| !matches!(instr, Instruction::NoOp));
+}
+
+fn optimize(v: &[Instruction]) -> Vec<Instruction> {
+    let mut program = coalesce(&v);
+    remove_noop(&mut program);
+
+    program
 }
 
 trait LastNonEmptyVector<T> {
