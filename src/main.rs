@@ -136,13 +136,11 @@ fn find_start_branch_target(end: BranchID, program: &[Instruction], pc: usize) -
 fn parse(source_text: &[u8]) -> Result<Vec<Instruction>, CompilationError> {
     use Instruction::*;
 
+    let mut program: Vec<_> = Vec::new();
     let mut branches = BranchStack::new();
 
-    let mut HACK_too_many_branches = false;
-
-    let program: Vec<_> = source_text
-        .iter()
-        .map(|byte| match byte {
+    for byte in source_text {
+        program.push(match byte {
             b'+' => Some(ChangeVal(1)),
             b'-' => Some(ChangeVal(-1)),
             b'>' => Some(ChangeAddr(1)),
@@ -153,20 +151,14 @@ fn parse(source_text: &[u8]) -> Result<Vec<Instruction>, CompilationError> {
             b']' => match branches.pop() {
                 Some(branch) => Some(EndBranch(branch)),
                 None => {
-                    HACK_too_many_branches = true;
-                    None
+                    return Err(CompilationError::TooManyCloseBrackets);
                 }
             },
             _ => None,
         })
-        .flatten()
-        .collect();
-
-    if HACK_too_many_branches {
-        Err(CompilationError::TooManyCloseBrackets)
-    } else {
-        Ok(program)
     }
+
+    Ok(program.into_iter().flatten().collect())
 }
 
 fn coalesce(instructions: &[Instruction]) -> Vec<Instruction> {
