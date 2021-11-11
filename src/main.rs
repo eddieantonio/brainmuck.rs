@@ -1,6 +1,6 @@
 use std::io::{self, Read};
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct BranchID(u32);
 
 #[derive(Debug, Clone, Copy)]
@@ -18,12 +18,94 @@ fn main() -> io::Result<()> {
     let mut source_text: Vec<u8> = Vec::new();
     io::stdin().read_to_end(&mut source_text)?;
     let v = parse(&source_text)?;
-    let mut opt = coalesce(&v);
-    remove_noop(&mut opt);
+    let mut program = coalesce(&v);
+    remove_noop(&mut program);
 
-    println!("{:#?}", opt);
-
+    interpret(&program);
     Ok(())
+}
+
+const SIZE_OF_UNIVERSE: usize = 256;
+
+fn interpret(program: &[Instruction]) {
+    use std::num::Wrapping;
+    use Instruction::*;
+
+    let mut universe = [Wrapping(0u8); SIZE_OF_UNIVERSE];
+    let mut current_address = 0;
+    let mut program_counter = 0;
+
+    while program_counter < program.len() {
+        program_counter = match program[program_counter] {
+            NoOp => program_counter + 1,
+            ChangeVal(val) => {
+                universe[current_address] += Wrapping((val & 0xFF) as u8);
+
+                program_counter + 1
+            }
+            ChangeAddr(incr) => {
+                let address = current_address as i32 + incr;
+
+                if address as usize >= SIZE_OF_UNIVERSE {
+                    panic!("Runtime error: address went beyond the end of the universe");
+                } else if address < 0 {
+                    panic!("Runtime error: address went below zero");
+                } else {
+                    current_address = address as usize;
+                }
+
+                program_counter + 1
+            }
+            PrintChar => {
+                let c = universe[current_address].0 as char;
+                print!("{}", c);
+
+                program_counter + 1
+            }
+            GetChar => {
+                let mut one_byte = [0u8];
+                io::stdin()
+                    .read_exact(&mut one_byte)
+                    .expect("could not read even a single byte!");
+                universe[current_address] = Wrapping(one_byte[0]);
+
+                program_counter + 1
+            }
+            StartBranch(start) => {
+                if universe[current_address].0 == 0 {
+                    let mut increment = 0;
+
+                    for &instr in &program[program_counter..] {
+                        match instr {
+                            EndBranch(end) if start == end => break,
+                            _ => increment += 1,
+                        }
+                    }
+                    assert!(increment > 0);
+                    assert!(matches!(program[program_counter + increment], EndBranch(_)));
+
+                    program_counter + increment + 1
+                } else {
+                    program_counter + 1
+                }
+            }
+            EndBranch(end) => {
+                let mut target = None;
+
+                for i in (0..program_counter).rev() {
+                    match program[i] {
+                        StartBranch(start) if start == end => {
+                            target.replace(i);
+                            break;
+                        }
+                        _ => continue,
+                    }
+                }
+
+                target.expect("Somehow did not find start of branch")
+            }
+        }
+    }
 }
 
 fn parse(source_text: &[u8]) -> Result<Vec<Instruction>, io::Error> {
@@ -59,7 +141,7 @@ fn coalesce(instructions: &Vec<Instruction>) -> Vec<Instruction> {
     for &instr in instructions {
         match (result.last(), instr) {
             (ChangeVal(x), ChangeVal(y)) => result.replace_last(ChangeVal(x + y)),
-            (ChangeAddr(x), ChangeAddr(y)) => result.replace_last(ChangeVal(x + y)),
+            (ChangeAddr(x), ChangeAddr(y)) => result.replace_last(ChangeAddr(x + y)),
             _ => result.push(instr),
         }
     }
