@@ -16,15 +16,22 @@ enum Instruction {
 }
 
 fn main() -> io::Result<()> {
+    let mut source_text: Vec<u8> = Vec::new();
+    io::stdin().read_to_end(&mut source_text)?;
+    let v = parse(&source_text)?;
+
+    println!("{:#?}", v);
+
+    Ok(())
+}
+
+fn parse(source_text: &[u8]) -> Result<Vec<Instruction>, io::Error> {
     use Instruction::*;
 
     let mut branch_stack: Vec<BranchID> = Vec::new();
     let mut next_branch_id = 0u32;
 
-    let mut source_text: Vec<u8> = Vec::new();
-    io::stdin().read_to_end(&mut source_text)?;
-
-    let v: Vec<Instruction> = source_text
+    Ok(source_text
         .iter()
         .map(|byte| match byte {
             b'+' => Some(IncrementVal),
@@ -47,9 +54,5 @@ fn main() -> io::Result<()> {
             _ => None,
         })
         .flatten()
-        .collect();
-
-    println!("{:#?}", v);
-
-    Ok(())
+        .collect())
 }
