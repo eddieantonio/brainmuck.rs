@@ -1,6 +1,6 @@
 extern crate brainmuck;
 
-use brainmuck::{BranchID, CompilationError, Instruction};
+use brainmuck::{CompilationError, ThreeAddressCode};
 use std::env;
 use std::fs;
 use std::io::{self, Read};
@@ -16,6 +16,7 @@ fn main() -> Result<(), CompilationError> {
     let source_text = fs::read(&args[1])?;
     let program = brainmuck::parse(&source_text)?;
     let program = brainmuck::optimize(&program);
+    let program = brainmuck::lower(&program);
 
     interpret(&program);
     Ok(())
@@ -23,9 +24,9 @@ fn main() -> Result<(), CompilationError> {
 
 const SIZE_OF_UNIVERSE: usize = 4096;
 
-fn interpret(program: &[Instruction]) {
+fn interpret(program: &[ThreeAddressCode]) {
     use std::num::Wrapping;
-    use Instruction::*;
+    use ThreeAddressCode::*;
 
     let mut universe = [Wrapping(0u8); SIZE_OF_UNIVERSE];
     let mut current_address = 0;
@@ -67,45 +68,15 @@ fn interpret(program: &[Instruction]) {
 
                 program_counter + 1
             }
-            StartBranch(start) => {
+            BranchIfZero(target) => {
                 if universe[current_address].0 == 0 {
-                    find_end_branch_target(start, &program, program_counter)
+                    target.into()
                 } else {
                     program_counter + 1
                 }
             }
-            EndBranch(end) => find_start_branch_target(end, &program, program_counter),
+            BranchTo(target) => target.into(),
+            Terminate => return,
         }
     }
-}
-
-fn find_end_branch_target(start: BranchID, program: &[Instruction], pc: usize) -> usize {
-    let mut increment = 0;
-
-    for &instr in &program[pc..] {
-        match instr {
-            Instruction::EndBranch(end) if start == end => break,
-            _ => increment += 1,
-        }
-    }
-    assert!(increment > 0);
-    assert!(matches!(program[pc + increment], Instruction::EndBranch(_)));
-
-    pc + increment + 1
-}
-
-fn find_start_branch_target(end: BranchID, program: &[Instruction], pc: usize) -> usize {
-    let mut target = None;
-
-    for i in (0..pc).rev() {
-        match program[i] {
-            Instruction::StartBranch(start) if start == end => {
-                target.replace(i);
-                break;
-            }
-            _ => continue,
-        }
-    }
-
-    target.expect("Somehow did not find start of branch")
 }

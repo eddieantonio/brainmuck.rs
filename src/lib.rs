@@ -19,6 +19,12 @@ pub enum Instruction {
 #[derive(Debug, Clone, Copy)]
 pub struct BranchTarget(usize);
 
+impl From<BranchTarget> for usize {
+    fn from(branch: BranchTarget) -> Self {
+        branch.0
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub enum ThreeAddressCode {
     ChangeVal(u8),
