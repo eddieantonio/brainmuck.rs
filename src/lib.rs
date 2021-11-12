@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::io;
 
 mod bytecode;
 mod errors;
@@ -106,12 +105,6 @@ pub fn print_cfg(cfg: &ControlFlowGraph) {
 }
 
 // Internal stuff:
-
-impl From<io::Error> for CompilationError {
-    fn from(err: io::Error) -> CompilationError {
-        CompilationError::IOError(err)
-    }
-}
 
 impl TryFrom<Statement> for ThreeAddressInstruction {
     type Error = String;
