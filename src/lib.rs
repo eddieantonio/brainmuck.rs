@@ -44,24 +44,62 @@ pub enum ThreeAddressCode {
     Terminate,
 }
 
+/// A representation of Brainfuck's source code that's easier to deal with than text.
+/// ...at least, that would be the case in most programming languages.
+pub struct AbstractSyntaxTree {
+    statements: Vec<Statement>,
+}
+
+/// Representation of a Brainfuck statement in an "easier" form.
+pub enum Statement {
+    IncrementVal,
+    DecrementVal,
+    IncrementAddr,
+    DecrementAddr,
+    PutChar,
+    GetChar,
+    StartConditional(ConditionalID),
+    EndConditional(ConditionalID),
+}
+
 /// Parses source text (really, just a bunch of bytes) into a list of statements.
 pub fn parse(source_text: &[u8]) -> Result<Vec<Instruction>, CompilationError> {
-    use Instruction::*;
-
+    let ast = parse_into_statements(&source_text)?;
     let mut program: Vec<_> = Vec::new();
+
+    for statement in ast.statements {
+        program.push(match statement {
+            Statement::IncrementVal => Some(Instruction::ChangeVal(1)),
+            Statement::DecrementVal => Some(Instruction::ChangeVal(-1)),
+            Statement::IncrementAddr => Some(Instruction::ChangeAddr(1)),
+            Statement::DecrementAddr => Some(Instruction::ChangeAddr(-1)),
+            Statement::PutChar => Some(Instruction::PrintChar),
+            Statement::GetChar => Some(Instruction::GetChar),
+            Statement::StartConditional(id) => Some(Instruction::StartBranch(id)),
+            Statement::EndConditional(id) => Some(Instruction::EndBranch(id)),
+        })
+    }
+
+    Ok(program.into_iter().flatten().collect())
+}
+
+fn parse_into_statements(source_text: &[u8]) -> Result<AbstractSyntaxTree, CompilationError> {
+    use Statement::*;
+
+    let mut statements: Vec<_> = Vec::new();
     let mut labels = ConditionalStack::new();
 
     for byte in source_text {
-        program.push(match byte {
-            b'+' => Some(ChangeVal(1)),
-            b'-' => Some(ChangeVal(-1)),
-            b'>' => Some(ChangeAddr(1)),
-            b'<' => Some(ChangeAddr(-1)),
-            b'.' => Some(PrintChar),
+        statements.push(match byte {
+            b'+' => Some(IncrementVal),
+            b'-' => Some(DecrementVal),
+            b'>' => Some(IncrementAddr),
+            b'<' => Some(DecrementAddr),
+            b'.' => Some(PutChar),
             b',' => Some(GetChar),
-            b'[' => Some(StartBranch(labels.next())),
+            b'[' => Some(StartConditional(labels.next())),
             b']' => match labels.pop() {
-                Some(branch) => Some(EndBranch(branch)),
+                Some(branch) => Some(EndConditional(branch)),
                 None => {
                     return Err(CompilationError::TooManyCloseBrackets);
                 }
@@ -70,7 +108,9 @@ pub fn parse(source_text: &[u8]) -> Result<Vec<Instruction>, CompilationError> {
         })
     }
 
-    Ok(program.into_iter().flatten().collect())
+    Ok(AbstractSyntaxTree {
+        statements: statements.into_iter().flatten().collect(),
+    })
 }
 
 /// Prints ThreeAddressCode in a pseudo-assembly format.
