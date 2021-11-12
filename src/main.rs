@@ -14,9 +14,8 @@ fn main() -> Result<(), CompilationError> {
     }
 
     let source_text = fs::read(&args[1])?;
-    let program = brainmuck::parse(&source_text)?;
-    let program = brainmuck::optimize(&program);
-    let program = brainmuck::lower(&program);
+    let ast = brainmuck::parse(&source_text)?;
+    let program = brainmuck::compile_to_bytecode(&ast);
 
     interpret(&program);
     Ok(())

@@ -95,6 +95,12 @@ pub fn parse(source_text: &[u8]) -> Result<AbstractSyntaxTree, CompilationError>
     })
 }
 
+/// Compile the AST down to bytecode.
+pub fn compile_to_bytecode(ast: &AbstractSyntaxTree) -> Vec<Bytecode> {
+    let program = optimize(&ast);
+    lower(&program)
+}
+
 /// Prints Bytecode in a pseudo-assembly format.
 pub fn disassemble(code: &[Bytecode]) {
     for (i, instr) in code.iter().enumerate() {
