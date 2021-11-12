@@ -51,6 +51,7 @@ pub struct AbstractSyntaxTree {
 }
 
 /// Representation of a Brainfuck statement in an "easier" form.
+#[derive(Debug, Copy, Clone)]
 pub enum Statement {
     IncrementVal,
     DecrementVal,
@@ -63,13 +64,7 @@ pub enum Statement {
 }
 
 /// Parses source text (really, just a bunch of bytes) into a list of statements.
-pub fn parse(source_text: &[u8]) -> Result<Vec<Instruction>, CompilationError> {
-    let ast = parse_into_statements(&source_text)?;
-
-    Ok(ast.statements.into_iter().map(From::from).collect())
-}
-
-fn parse_into_statements(source_text: &[u8]) -> Result<AbstractSyntaxTree, CompilationError> {
+pub fn parse(source_text: &[u8]) -> Result<AbstractSyntaxTree, CompilationError> {
     use Statement::*;
 
     let mut statements: Vec<_> = Vec::new();
@@ -152,8 +147,9 @@ pub fn lower(instructions: &[Instruction]) -> Vec<ThreeAddressCode> {
 }
 
 /// Optimizes the instruction stream
-pub fn optimize(v: &[Instruction]) -> Vec<Instruction> {
-    let mut program = coalesce(&v);
+pub fn optimize(program: &AbstractSyntaxTree) -> Vec<Instruction> {
+    let instructions: Vec<Instruction> = program.statements.iter().map(|s| (*s).into()).collect();
+    let mut program = coalesce(&instructions);
     remove_noop(&mut program);
 
     program
