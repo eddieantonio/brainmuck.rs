@@ -109,7 +109,7 @@ pub fn disassemble(code: &[Bytecode]) {
 }
 
 /// Lowers instructions to three-address code
-pub fn lower(instructions: &[Instruction]) -> Vec<Bytecode> {
+fn lower(instructions: &[Instruction]) -> Vec<Bytecode> {
     // Do a pre-pass to determine branch targets
     let mut conditional_branch_targets = HashMap::new();
     let mut unconditional_branch_targets = HashMap::new();
@@ -154,7 +154,7 @@ pub fn lower(instructions: &[Instruction]) -> Vec<Bytecode> {
 }
 
 /// Optimizes the instruction stream
-pub fn optimize(program: &AbstractSyntaxTree) -> Vec<Instruction> {
+fn optimize(program: &AbstractSyntaxTree) -> Vec<Instruction> {
     let instructions: Vec<Instruction> = program.statements.iter().map(|s| (*s).into()).collect();
     let mut program = coalesce(&instructions);
     remove_noop(&mut program);
