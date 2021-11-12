@@ -13,7 +13,7 @@ pub enum CompilationError {
 
 /// An arbitrary ID assigned to a pair of [ ] branches, to associate the two.
 #[derive(Debug, Clone, Hash, Copy, PartialEq, Eq)]
-pub struct BranchID(u32);
+pub struct ConditionalID(u32);
 
 /// A concrete offset from the beginning of a program to a specific instruction.
 #[derive(Debug, Clone, Copy)]
@@ -26,8 +26,8 @@ pub enum Instruction {
     ChangeAddr(i32),
     PrintChar,
     GetChar,
-    StartBranch(BranchID),
-    EndBranch(BranchID),
+    StartBranch(ConditionalID),
+    EndBranch(ConditionalID),
     NoOp,
 }
 
@@ -49,7 +49,7 @@ pub fn parse(source_text: &[u8]) -> Result<Vec<Instruction>, CompilationError> {
     use Instruction::*;
 
     let mut program: Vec<_> = Vec::new();
-    let mut branches = BranchStack::new();
+    let mut labels = ConditionalStack::new();
 
     for byte in source_text {
         program.push(match byte {
@@ -59,8 +59,8 @@ pub fn parse(source_text: &[u8]) -> Result<Vec<Instruction>, CompilationError> {
             b'<' => Some(ChangeAddr(-1)),
             b'.' => Some(PrintChar),
             b',' => Some(GetChar),
-            b'[' => Some(StartBranch(branches.next())),
-            b']' => match branches.pop() {
+            b'[' => Some(StartBranch(labels.next())),
+            b']' => match labels.pop() {
                 Some(branch) => Some(EndBranch(branch)),
                 None => {
                     return Err(CompilationError::TooManyCloseBrackets);
@@ -157,8 +157,8 @@ fn remove_noop(v: &mut Vec<Instruction>) {
 
 // Internal data:
 
-struct BranchStack {
-    stack: Vec<BranchID>,
+struct ConditionalStack {
+    stack: Vec<ConditionalID>,
     next_id: u32,
 }
 
@@ -182,7 +182,7 @@ where
     }
 }
 
-impl BranchStack {
+impl ConditionalStack {
     fn new() -> Self {
         Self {
             stack: Vec::new(),
@@ -190,15 +190,15 @@ impl BranchStack {
         }
     }
 
-    pub fn next(&mut self) -> BranchID {
-        let current_branch = BranchID(self.next_id);
+    pub fn next(&mut self) -> ConditionalID {
+        let current_branch = ConditionalID(self.next_id);
         self.next_id += 1;
         self.stack.push(current_branch);
 
         current_branch
     }
 
-    pub fn pop(&mut self) -> Option<BranchID> {
+    pub fn pop(&mut self) -> Option<ConditionalID> {
         self.stack.pop()
     }
 }
