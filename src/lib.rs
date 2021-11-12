@@ -97,17 +97,15 @@ pub fn parse(source_text: &[u8]) -> Result<AbstractSyntaxTree, CompilationError>
 
 /// Compile the AST down to bytecode.
 pub fn compile_to_bytecode(ast: &AbstractSyntaxTree) -> Vec<Bytecode> {
-    let instructions: Vec<Instruction> = ast.statements.iter().map(|s| (*s).into()).collect();
-
     // Do a pre-pass to determine branch targets
     let mut conditional_branch_targets = HashMap::new();
     let mut unconditional_branch_targets = HashMap::new();
-    for (ip, instr) in instructions.iter().enumerate() {
+    for (ip, instr) in ast.statements.iter().enumerate() {
         match instr {
-            Instruction::StartBranch(branch) => {
+            Statement::StartConditional(branch) => {
                 unconditional_branch_targets.insert(branch, BranchTarget(ip));
             }
-            Instruction::EndBranch(branch) => {
+            Statement::EndConditional(branch) => {
                 conditional_branch_targets.insert(branch, BranchTarget(ip + 1));
             }
             _ => (),
@@ -115,27 +113,34 @@ pub fn compile_to_bytecode(ast: &AbstractSyntaxTree) -> Vec<Bytecode> {
     }
 
     let mut code = Vec::new();
-    for &instr in &instructions {
+    for &instr in ast.statements.iter() {
         code.push(match instr {
-            Instruction::ChangeVal(val) => Bytecode::ChangeVal((val & 0xFF) as u8),
-            Instruction::ChangeAddr(incr) => Bytecode::ChangeAddr(incr as i32),
-            Instruction::PrintChar => Bytecode::PrintChar,
-            Instruction::GetChar => Bytecode::GetChar,
-            Instruction::StartBranch(branch) => {
+            Statement::IncrementVal => Bytecode::ChangeVal(1),
+            Statement::DecrementVal => Bytecode::ChangeVal(-1i8 as u8),
+            Statement::IncrementAddr => Bytecode::ChangeAddr(1),
+            Statement::DecrementAddr => Bytecode::ChangeAddr(-1),
+            Statement::PutChar => Bytecode::PrintChar,
+            Statement::GetChar => Bytecode::GetChar,
+            Statement::StartConditional(branch) => {
                 let target = *conditional_branch_targets
                     .get(&branch)
                     .expect("Branch target does not exist");
                 Bytecode::BranchIfZero(target)
             }
-            Instruction::EndBranch(branch) => {
+            Statement::EndConditional(branch) => {
                 let target = *unconditional_branch_targets
                     .get(&branch)
                     .expect("Branch target does not exist");
                 Bytecode::BranchTo(target)
             }
-            Instruction::NoOp => Bytecode::NoOp,
         })
     }
+
+    assert_eq!(
+        code.len(),
+        ast.statements.len(),
+        "there should be the same number of statements as instructions"
+    );
 
     code.push(Bytecode::Terminate);
 
