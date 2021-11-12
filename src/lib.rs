@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::fmt;
 use std::io;
 
 mod bytecode;
@@ -9,7 +8,7 @@ mod optimize;
 mod parsing;
 
 use crate::bytecode::compile_cfg_to_bytecode;
-pub use crate::bytecode::Bytecode;
+pub use crate::bytecode::{disassemble, Bytecode};
 pub use crate::errors::CompilationError;
 use crate::ir::{BasicBlock, BlockLabel, ControlFlowGraph, ThreeAddressInstruction};
 use crate::optimize::optimize;
@@ -85,13 +84,6 @@ pub fn lower(ast: &AbstractSyntaxTree) -> ControlFlowGraph {
     ControlFlowGraph::new(blocks)
 }
 
-/// Prints Bytecode in a pseudo-assembly format.
-pub fn disassemble(code: &[Bytecode]) {
-    for (i, instr) in code.iter().enumerate() {
-        println!("{:4}: {}", i, instr);
-    }
-}
-
 pub fn print_cfg(cfg: &ControlFlowGraph) {
     use ThreeAddressInstruction::*;
     for block in cfg.blocks().iter() {
@@ -114,22 +106,6 @@ pub fn print_cfg(cfg: &ControlFlowGraph) {
 }
 
 // Internal stuff:
-
-impl fmt::Display for Bytecode {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use Bytecode::*;
-        match self {
-            ChangeVal(amount) => write!(f, "[bp] <- [bp] + #{}", amount),
-            ChangeAddr(amount) => write!(f, "bp <- bp + #{}", amount),
-            PrintChar => write!(f, "putchar [bp]"),
-            GetChar => write!(f, "getchar [bp]"),
-            BranchIfZero(target) => write!(f, "beq {}", target.0),
-            BranchTo(target) => write!(f, "b {}", target.0),
-            NoOp => write!(f, "nop"),
-            Terminate => write!(f, "ret"),
-        }
-    }
-}
 
 impl From<io::Error> for CompilationError {
     fn from(err: io::Error) -> CompilationError {
