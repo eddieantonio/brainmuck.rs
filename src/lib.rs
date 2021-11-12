@@ -2,14 +2,10 @@ use std::collections::HashMap;
 use std::fmt;
 use std::io;
 
-// Errors
+mod errors;
 
-/// Any error that occurs as a result of compiling the source code.
-#[derive(Debug)]
-pub enum CompilationError {
-    IOError(io::Error),
-    TooManyCloseBrackets,
-}
+// Errors;
+pub use errors::CompilationError;
 
 /// An arbitrary ID assigned to a pair of [ ] branches, to associate the two.
 #[derive(Debug, Clone, Hash, Copy, PartialEq, Eq)]
