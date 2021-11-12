@@ -4,10 +4,9 @@ pub mod ir;
 mod optimize;
 pub mod parsing;
 
-use crate::bytecode::compile_cfg_to_bytecode;
-pub use crate::bytecode::{disassemble, Bytecode};
-pub use crate::errors::CompilationError;
-pub use crate::parsing::{parse, AbstractSyntaxTree, ConditionalID, Statement};
+use crate::bytecode::{compile_cfg_to_bytecode, Bytecode};
+pub use crate::parsing::parse;
+use crate::parsing::AbstractSyntaxTree;
 
 /// Compile the AST down to bytecode.
 pub fn compile_to_bytecode(ast: &AbstractSyntaxTree) -> Vec<Bytecode> {
