@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
-mod bytecode;
-mod errors;
-mod ir;
+pub mod bytecode;
+pub mod errors;
+pub mod ir;
 mod optimize;
-mod parsing;
+pub mod parsing;
 
 use crate::bytecode::compile_cfg_to_bytecode;
 pub use crate::bytecode::{disassemble, Bytecode};
@@ -81,27 +81,6 @@ pub fn lower(ast: &AbstractSyntaxTree) -> ControlFlowGraph {
     blocks.push(BasicBlock::new(BlockLabel(block_id), current_block_instrs));
 
     ControlFlowGraph::new(blocks)
-}
-
-pub fn print_cfg(cfg: &ControlFlowGraph) {
-    use ThreeAddressInstruction::*;
-    for block in cfg.blocks().iter() {
-        let BlockLabel(n) = block.label();
-        println!("L{}:", n);
-
-        for &instr in block.instructions().iter() {
-            match instr {
-                ChangeVal(v) => println!("\tadd\t[p], [p], #{}", v as i8),
-                ChangeAddr(v) => println!("\tadd\tp, p, #{}", v),
-                PutChar => println!("\tputchar"),
-                GetChar => println!("\tgetchar"),
-                BranchIfZero(BlockLabel(n)) => println!("\tbeq\t[p], L{}", n),
-                BranchTo(BlockLabel(n)) => println!("\tb\tL{}", n),
-                NoOp => println!("\tnop"),
-                Terminate => println!("\tterminate"),
-            }
-        }
-    }
 }
 
 // Internal stuff:

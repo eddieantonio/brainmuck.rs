@@ -74,3 +74,24 @@ impl BasicBlock {
         self.instructions[0] = BranchIfZero(target);
     }
 }
+
+pub fn print_cfg(cfg: &ControlFlowGraph) {
+    use ThreeAddressInstruction::*;
+    for block in cfg.blocks().iter() {
+        let BlockLabel(n) = block.label();
+        println!("L{}:", n);
+
+        for &instr in block.instructions().iter() {
+            match instr {
+                ChangeVal(v) => println!("\tadd\t[p], [p], #{}", v as i8),
+                ChangeAddr(v) => println!("\tadd\tp, p, #{}", v),
+                PutChar => println!("\tputchar"),
+                GetChar => println!("\tgetchar"),
+                BranchIfZero(BlockLabel(n)) => println!("\tbeq\t[p], L{}", n),
+                BranchTo(BlockLabel(n)) => println!("\tb\tL{}", n),
+                NoOp => println!("\tnop"),
+                Terminate => println!("\tterminate"),
+            }
+        }
+    }
+}
