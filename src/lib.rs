@@ -32,8 +32,11 @@ pub enum Bytecode {
 pub fn compile_to_bytecode(ast: &AbstractSyntaxTree) -> Vec<Bytecode> {
     let cfg = lower(&ast);
     let cfg = optimize(&cfg);
-    print_cfg(&cfg);
 
+    compile_cfg_to_bytecode(&cfg)
+}
+
+fn compile_cfg_to_bytecode(cfg: &ControlFlowGraph) -> Vec<Bytecode> {
     let mut branch_targets = HashMap::new();
     let mut incomplete_instructions = Vec::new();
     let mut code = Vec::new();
