@@ -65,22 +65,21 @@ pub enum Statement {
 /// Parses source text (really, just a bunch of bytes) into a list of statements.
 pub fn parse(source_text: &[u8]) -> Result<Vec<Instruction>, CompilationError> {
     let ast = parse_into_statements(&source_text)?;
-    let mut program: Vec<_> = Vec::new();
 
-    for statement in ast.statements {
-        program.push(match statement {
-            Statement::IncrementVal => Some(Instruction::ChangeVal(1)),
-            Statement::DecrementVal => Some(Instruction::ChangeVal(-1)),
-            Statement::IncrementAddr => Some(Instruction::ChangeAddr(1)),
-            Statement::DecrementAddr => Some(Instruction::ChangeAddr(-1)),
-            Statement::PutChar => Some(Instruction::PrintChar),
-            Statement::GetChar => Some(Instruction::GetChar),
-            Statement::StartConditional(id) => Some(Instruction::StartBranch(id)),
-            Statement::EndConditional(id) => Some(Instruction::EndBranch(id)),
+    Ok(ast
+        .statements
+        .into_iter()
+        .map(|statement| match statement {
+            Statement::IncrementVal => Instruction::ChangeVal(1),
+            Statement::DecrementVal => Instruction::ChangeVal(-1),
+            Statement::IncrementAddr => Instruction::ChangeAddr(1),
+            Statement::DecrementAddr => Instruction::ChangeAddr(-1),
+            Statement::PutChar => Instruction::PrintChar,
+            Statement::GetChar => Instruction::GetChar,
+            Statement::StartConditional(id) => Instruction::StartBranch(id),
+            Statement::EndConditional(id) => Instruction::EndBranch(id),
         })
-    }
-
-    Ok(program.into_iter().flatten().collect())
+        .collect())
 }
 
 fn parse_into_statements(source_text: &[u8]) -> Result<AbstractSyntaxTree, CompilationError> {
