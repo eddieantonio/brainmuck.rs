@@ -99,27 +99,6 @@ pub fn parse(source_text: &[u8]) -> Result<AbstractSyntaxTree, CompilationError>
 pub fn compile_to_bytecode(ast: &AbstractSyntaxTree) -> Vec<Bytecode> {
     let instructions: Vec<Instruction> = ast.statements.iter().map(|s| (*s).into()).collect();
 
-    // Optimize "instructions"
-    let mut program = {
-        use Instruction::*;
-
-        let mut result = vec![NoOp];
-
-        for &instr in &instructions {
-            match (result.last(), instr) {
-                (ChangeVal(x), ChangeVal(y)) => result.replace_last(ChangeVal(x + y)),
-                (ChangeAddr(x), ChangeAddr(y)) => result.replace_last(ChangeAddr(x + y)),
-                _ => result.push(instr),
-            }
-        }
-
-        result
-    };
-    // remove no-ops
-    program.retain(|instr| !matches!(instr, Instruction::NoOp));
-
-    // Assemble into bytecode
-    let instructions = program;
     // Do a pre-pass to determine branch targets
     let mut conditional_branch_targets = HashMap::new();
     let mut unconditional_branch_targets = HashMap::new();
