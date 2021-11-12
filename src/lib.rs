@@ -97,19 +97,29 @@ pub fn parse(source_text: &[u8]) -> Result<AbstractSyntaxTree, CompilationError>
 
 /// Compile the AST down to bytecode.
 pub fn compile_to_bytecode(ast: &AbstractSyntaxTree) -> Vec<Bytecode> {
-    let program = optimize(&ast);
-    lower(&program)
-}
+    let instructions: Vec<Instruction> = ast.statements.iter().map(|s| (*s).into()).collect();
 
-/// Prints Bytecode in a pseudo-assembly format.
-pub fn disassemble(code: &[Bytecode]) {
-    for (i, instr) in code.iter().enumerate() {
-        println!("{:4}: {}", i, instr);
-    }
-}
+    // Optimize "instructions"
+    let mut program = {
+        use Instruction::*;
 
-/// Lowers instructions to three-address code
-fn lower(instructions: &[Instruction]) -> Vec<Bytecode> {
+        let mut result = vec![NoOp];
+
+        for &instr in &instructions {
+            match (result.last(), instr) {
+                (ChangeVal(x), ChangeVal(y)) => result.replace_last(ChangeVal(x + y)),
+                (ChangeAddr(x), ChangeAddr(y)) => result.replace_last(ChangeAddr(x + y)),
+                _ => result.push(instr),
+            }
+        }
+
+        result
+    };
+    // remove no-ops
+    program.retain(|instr| !matches!(instr, Instruction::NoOp));
+
+    // Assemble into bytecode
+    let instructions = program;
     // Do a pre-pass to determine branch targets
     let mut conditional_branch_targets = HashMap::new();
     let mut unconditional_branch_targets = HashMap::new();
@@ -125,9 +135,9 @@ fn lower(instructions: &[Instruction]) -> Vec<Bytecode> {
         }
     }
 
-    let mut tac = Vec::new();
-    for &instr in instructions {
-        tac.push(match instr {
+    let mut code = Vec::new();
+    for &instr in &instructions {
+        code.push(match instr {
             Instruction::ChangeVal(val) => Bytecode::ChangeVal((val & 0xFF) as u8),
             Instruction::ChangeAddr(incr) => Bytecode::ChangeAddr(incr as i32),
             Instruction::PrintChar => Bytecode::PrintChar,
@@ -148,40 +158,16 @@ fn lower(instructions: &[Instruction]) -> Vec<Bytecode> {
         })
     }
 
-    tac.push(Bytecode::Terminate);
+    code.push(Bytecode::Terminate);
 
-    tac
+    code
 }
 
-/// Optimizes the instruction stream
-fn optimize(program: &AbstractSyntaxTree) -> Vec<Instruction> {
-    let instructions: Vec<Instruction> = program.statements.iter().map(|s| (*s).into()).collect();
-    let mut program = coalesce(&instructions);
-    remove_noop(&mut program);
-
-    program
-}
-
-/// Combine several contiguous ChangeVal or ChangeAddr instructions to one.
-fn coalesce(instructions: &[Instruction]) -> Vec<Instruction> {
-    use Instruction::*;
-
-    let mut result = vec![NoOp];
-
-    for &instr in instructions {
-        match (result.last(), instr) {
-            (ChangeVal(x), ChangeVal(y)) => result.replace_last(ChangeVal(x + y)),
-            (ChangeAddr(x), ChangeAddr(y)) => result.replace_last(ChangeAddr(x + y)),
-            _ => result.push(instr),
-        }
+/// Prints Bytecode in a pseudo-assembly format.
+pub fn disassemble(code: &[Bytecode]) {
+    for (i, instr) in code.iter().enumerate() {
+        println!("{:4}: {}", i, instr);
     }
-
-    result
-}
-
-/// Mutates the vector to remove all no-op instructions.
-fn remove_noop(v: &mut Vec<Instruction>) {
-    v.retain(|instr| !matches!(instr, Instruction::NoOp));
 }
 
 // Internal data:
