@@ -2,31 +2,16 @@ use std::collections::HashMap;
 use std::fmt;
 use std::io;
 
+mod bytecode;
 mod errors;
 mod ir;
 mod parsing;
 
+use crate::bytecode::compile_cfg_to_bytecode;
+pub use crate::bytecode::Bytecode;
 pub use crate::errors::CompilationError;
 use crate::ir::{BasicBlock, BlockLabel, ControlFlowGraph, ThreeAddressInstruction};
 pub use crate::parsing::{parse, AbstractSyntaxTree, ConditionalID, Statement};
-
-/// A concrete offset from the beginning of a program to a specific instruction.
-#[derive(Debug, Clone, Copy)]
-pub struct BranchTarget(pub usize);
-
-/// "Bytecode" is a misnomer, but it's the best idea for what this is. It's pseudo-assembly and one
-/// can write an intrepretter for it pretty easily 👀
-#[derive(Debug, Clone, Copy)]
-pub enum Bytecode {
-    ChangeVal(u8),
-    ChangeAddr(i32),
-    PrintChar,
-    GetChar,
-    BranchIfZero(BranchTarget),
-    BranchTo(BranchTarget),
-    NoOp,
-    Terminate,
-}
 
 /// Compile the AST down to bytecode.
 pub fn compile_to_bytecode(ast: &AbstractSyntaxTree) -> Vec<Bytecode> {
@@ -34,63 +19,6 @@ pub fn compile_to_bytecode(ast: &AbstractSyntaxTree) -> Vec<Bytecode> {
     let cfg = optimize(&cfg);
 
     compile_cfg_to_bytecode(&cfg)
-}
-
-fn compile_cfg_to_bytecode(cfg: &ControlFlowGraph) -> Vec<Bytecode> {
-    let mut branch_targets = HashMap::new();
-    let mut incomplete_instructions = Vec::new();
-    let mut code = Vec::new();
-    let mut pc = 0;
-
-    // First pass. Generate code, but don't try making valid branch targets.
-    for block in cfg.blocks().iter() {
-        use ThreeAddressInstruction::*;
-
-        let block_id = block.label();
-        let instructions = block.instructions();
-        branch_targets.insert(block_id, BranchTarget(pc));
-
-        for &instr in instructions {
-            code.push(match instr {
-                ChangeVal(c) => Bytecode::ChangeVal(c),
-                ChangeAddr(c) => Bytecode::ChangeAddr(c),
-                PutChar => Bytecode::PrintChar,
-                GetChar => Bytecode::GetChar,
-                BranchIfZero(label) => {
-                    incomplete_instructions.push((pc, label));
-                    Bytecode::BranchIfZero(BranchTarget(0))
-                }
-                BranchTo(label) => {
-                    incomplete_instructions.push((pc, label));
-                    Bytecode::BranchTo(BranchTarget(0))
-                }
-                NoOp => {
-                    continue;
-                }
-                Terminate => Bytecode::Terminate,
-            });
-
-            pc += 1;
-        }
-    }
-
-    // Second pass: patch in branch targets
-    for (i, ref label) in incomplete_instructions {
-        use Bytecode::*;
-
-        let instr = code[i];
-        let target = *branch_targets
-            .get(label)
-            .expect("branch target should have been determined in the first pass");
-
-        code[i] = match instr {
-            BranchIfZero(_) => BranchIfZero(target),
-            BranchTo(_) => BranchTo(target),
-            _ => panic!("replacing branch not supported for {:?}", instr),
-        };
-    }
-
-    code
 }
 
 pub fn lower(ast: &AbstractSyntaxTree) -> ControlFlowGraph {
