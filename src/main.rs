@@ -1,6 +1,6 @@
 extern crate brainmuck;
 
-use brainmuck::{CompilationError, ThreeAddressCode};
+use brainmuck::{Bytecode, CompilationError};
 use std::env;
 use std::fs;
 use std::io::{self, Read};
@@ -24,8 +24,8 @@ fn main() -> Result<(), CompilationError> {
 
 const SIZE_OF_UNIVERSE: usize = 4096;
 
-fn interpret(program: &[ThreeAddressCode]) {
-    use ThreeAddressCode::*;
+fn interpret(program: &[Bytecode]) {
+    use Bytecode::*;
 
     let mut universe = [0u8; SIZE_OF_UNIVERSE];
     let mut current_address = 0;

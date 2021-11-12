@@ -31,9 +31,10 @@ pub enum Instruction {
     NoOp,
 }
 
-/// Internal representation of code that modifies at most three addresses
+/// "Bytecode" is a misnomer, but it's the best idea for what this is. It's pseudo-assembly and one
+/// can write an intrepretter for it pretty easily 👀
 #[derive(Debug, Clone, Copy)]
-pub enum ThreeAddressCode {
+pub enum Bytecode {
     ChangeVal(u8),
     ChangeAddr(i32),
     PrintChar,
@@ -94,15 +95,15 @@ pub fn parse(source_text: &[u8]) -> Result<AbstractSyntaxTree, CompilationError>
     })
 }
 
-/// Prints ThreeAddressCode in a pseudo-assembly format.
-pub fn disassemble(code: &[ThreeAddressCode]) {
+/// Prints Bytecode in a pseudo-assembly format.
+pub fn disassemble(code: &[Bytecode]) {
     for (i, instr) in code.iter().enumerate() {
         println!("{:4}: {}", i, instr);
     }
 }
 
 /// Lowers instructions to three-address code
-pub fn lower(instructions: &[Instruction]) -> Vec<ThreeAddressCode> {
+pub fn lower(instructions: &[Instruction]) -> Vec<Bytecode> {
     // Do a pre-pass to determine branch targets
     let mut conditional_branch_targets = HashMap::new();
     let mut unconditional_branch_targets = HashMap::new();
@@ -121,27 +122,27 @@ pub fn lower(instructions: &[Instruction]) -> Vec<ThreeAddressCode> {
     let mut tac = Vec::new();
     for &instr in instructions {
         tac.push(match instr {
-            Instruction::ChangeVal(val) => ThreeAddressCode::ChangeVal((val & 0xFF) as u8),
-            Instruction::ChangeAddr(incr) => ThreeAddressCode::ChangeAddr(incr as i32),
-            Instruction::PrintChar => ThreeAddressCode::PrintChar,
-            Instruction::GetChar => ThreeAddressCode::GetChar,
+            Instruction::ChangeVal(val) => Bytecode::ChangeVal((val & 0xFF) as u8),
+            Instruction::ChangeAddr(incr) => Bytecode::ChangeAddr(incr as i32),
+            Instruction::PrintChar => Bytecode::PrintChar,
+            Instruction::GetChar => Bytecode::GetChar,
             Instruction::StartBranch(branch) => {
                 let target = *conditional_branch_targets
                     .get(&branch)
                     .expect("Branch target does not exist");
-                ThreeAddressCode::BranchIfZero(target)
+                Bytecode::BranchIfZero(target)
             }
             Instruction::EndBranch(branch) => {
                 let target = *unconditional_branch_targets
                     .get(&branch)
                     .expect("Branch target does not exist");
-                ThreeAddressCode::BranchTo(target)
+                Bytecode::BranchTo(target)
             }
-            Instruction::NoOp => ThreeAddressCode::NoOp,
+            Instruction::NoOp => Bytecode::NoOp,
         })
     }
 
-    tac.push(ThreeAddressCode::Terminate);
+    tac.push(Bytecode::Terminate);
 
     tac
 }
@@ -225,9 +226,9 @@ impl ConditionalStack {
     }
 }
 
-impl fmt::Display for ThreeAddressCode {
+impl fmt::Display for Bytecode {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use ThreeAddressCode::*;
+        use Bytecode::*;
         match self {
             ChangeVal(amount) => write!(f, "[bp] <- [bp] + #{}", amount),
             ChangeAddr(amount) => write!(f, "bp <- bp + #{}", amount),
