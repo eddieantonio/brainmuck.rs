@@ -20,7 +20,7 @@ pub struct ConditionalID(u32);
 pub struct BranchTarget(pub usize);
 
 /// A label for a basic block. Also serves as a branch target.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub struct BlockLabel(pub usize);
 
 /// A basic, internal representation of the code. This is a series of basic blocks
@@ -119,52 +119,60 @@ pub fn compile_to_bytecode(ast: &AbstractSyntaxTree) -> Vec<Bytecode> {
     let cfg = optimize(&cfg);
     print_cfg(&cfg);
 
-    // Do a pre-pass to determine branch targets
-    let mut conditional_branch_targets = HashMap::new();
-    let mut unconditional_branch_targets = HashMap::new();
-    for (ip, instr) in ast.statements.iter().enumerate() {
-        match instr {
-            Statement::StartConditional(branch) => {
-                unconditional_branch_targets.insert(branch, BranchTarget(ip));
-            }
-            Statement::EndConditional(branch) => {
-                conditional_branch_targets.insert(branch, BranchTarget(ip + 1));
-            }
-            _ => (),
+    let mut branch_targets = HashMap::new();
+    let mut incomplete_instructions = Vec::new();
+    let mut code = Vec::new();
+    let mut pc = 0;
+
+    // First pass. Generate code, but don't try making valid branch targets.
+    for BasicBlock {
+        block_id,
+        ref instructions,
+    } in cfg.blocks.iter()
+    {
+        use ThreeAddressInstruction::*;
+
+        branch_targets.insert(block_id, BranchTarget(pc));
+
+        for &instr in instructions {
+            code.push(match instr {
+                ChangeVal(c) => Bytecode::ChangeVal(c),
+                ChangeAddr(c) => Bytecode::ChangeAddr(c),
+                PutChar => Bytecode::PrintChar,
+                GetChar => Bytecode::GetChar,
+                BranchIfZero(label) => {
+                    incomplete_instructions.push((pc, label));
+                    Bytecode::BranchIfZero(BranchTarget(0))
+                }
+                BranchTo(label) => {
+                    incomplete_instructions.push((pc, label));
+                    Bytecode::BranchTo(BranchTarget(0))
+                }
+                NoOp => {
+                    continue;
+                }
+                Terminate => Bytecode::Terminate,
+            });
+
+            pc += 1;
         }
     }
 
-    let mut code = Vec::new();
-    for &instr in ast.statements.iter() {
-        code.push(match instr {
-            Statement::IncrementVal => Bytecode::ChangeVal(1),
-            Statement::DecrementVal => Bytecode::ChangeVal(-1i8 as u8),
-            Statement::IncrementAddr => Bytecode::ChangeAddr(1),
-            Statement::DecrementAddr => Bytecode::ChangeAddr(-1),
-            Statement::PutChar => Bytecode::PrintChar,
-            Statement::GetChar => Bytecode::GetChar,
-            Statement::StartConditional(branch) => {
-                let target = *conditional_branch_targets
-                    .get(&branch)
-                    .expect("Branch target does not exist");
-                Bytecode::BranchIfZero(target)
-            }
-            Statement::EndConditional(branch) => {
-                let target = *unconditional_branch_targets
-                    .get(&branch)
-                    .expect("Branch target does not exist");
-                Bytecode::BranchTo(target)
-            }
-        })
+    // Second pass: patch in branch targets
+    for (i, ref label) in incomplete_instructions {
+        use Bytecode::*;
+
+        let instr = code[i];
+        let target = *branch_targets
+            .get(label)
+            .expect("branch target should have been determined in the first pass");
+
+        code[i] = match instr {
+            BranchIfZero(_) => BranchIfZero(target),
+            BranchTo(_) => BranchTo(target),
+            _ => panic!("replacing branch not supported for {:?}", instr),
+        };
     }
-
-    assert_eq!(
-        code.len(),
-        ast.statements.len(),
-        "there should be the same number of statements as instructions"
-    );
-
-    code.push(Bytecode::Terminate);
 
     code
 }
@@ -290,7 +298,7 @@ pub fn disassemble(code: &[Bytecode]) {
     }
 }
 
-fn print_cfg(cfg: &ControlFlowGraph) {
+pub fn print_cfg(cfg: &ControlFlowGraph) {
     use ThreeAddressInstruction::*;
     for block in cfg.blocks.iter() {
         let BlockLabel(n) = block.block_id;
