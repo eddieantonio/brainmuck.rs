@@ -66,20 +66,7 @@ pub enum Statement {
 pub fn parse(source_text: &[u8]) -> Result<Vec<Instruction>, CompilationError> {
     let ast = parse_into_statements(&source_text)?;
 
-    Ok(ast
-        .statements
-        .into_iter()
-        .map(|statement| match statement {
-            Statement::IncrementVal => Instruction::ChangeVal(1),
-            Statement::DecrementVal => Instruction::ChangeVal(-1),
-            Statement::IncrementAddr => Instruction::ChangeAddr(1),
-            Statement::DecrementAddr => Instruction::ChangeAddr(-1),
-            Statement::PutChar => Instruction::PrintChar,
-            Statement::GetChar => Instruction::GetChar,
-            Statement::StartConditional(id) => Instruction::StartBranch(id),
-            Statement::EndConditional(id) => Instruction::EndBranch(id),
-        })
-        .collect())
+    Ok(ast.statements.into_iter().map(From::from).collect())
 }
 
 fn parse_into_statements(source_text: &[u8]) -> Result<AbstractSyntaxTree, CompilationError> {
@@ -261,5 +248,20 @@ impl fmt::Display for ThreeAddressCode {
 impl From<io::Error> for CompilationError {
     fn from(err: io::Error) -> CompilationError {
         CompilationError::IOError(err)
+    }
+}
+
+impl From<Statement> for Instruction {
+    fn from(statement: Statement) -> Self {
+        match statement {
+            Statement::IncrementVal => Instruction::ChangeVal(1),
+            Statement::DecrementVal => Instruction::ChangeVal(-1),
+            Statement::IncrementAddr => Instruction::ChangeAddr(1),
+            Statement::DecrementAddr => Instruction::ChangeAddr(-1),
+            Statement::PutChar => Instruction::PrintChar,
+            Statement::GetChar => Instruction::GetChar,
+            Statement::StartConditional(id) => Instruction::StartBranch(id),
+            Statement::EndConditional(id) => Instruction::EndBranch(id),
+        }
     }
 }
