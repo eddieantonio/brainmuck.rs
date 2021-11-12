@@ -135,7 +135,7 @@ pub fn lower(ast: &AbstractSyntaxTree) -> ControlFlowGraph {
                 current_block_instrs = Vec::new();
 
                 // ...and we can fix the branch target to the NEXT block
-                blocks[start_block.0].instructions[0] = BranchIfZero(BlockLabel(block_id));
+                blocks[start_block.0].replace_noop_with_branch_target(BlockLabel(block_id));
             }
             _ => {
                 current_block_instrs.push(statement.try_into().expect("bad statement translation"));
@@ -195,7 +195,7 @@ pub fn print_cfg(cfg: &ControlFlowGraph) {
         let BlockLabel(n) = block.label();
         println!("L{}:", n);
 
-        for &instr in block.instructions.iter() {
+        for &instr in block.instructions().iter() {
             match instr {
                 ChangeVal(v) => println!("\tadd\t[p], [p], #{}", v as i8),
                 ChangeAddr(v) => println!("\tadd\tp, p, #{}", v),

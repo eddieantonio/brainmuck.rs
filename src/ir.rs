@@ -8,8 +8,7 @@ pub struct ControlFlowGraph {
 #[derive(Debug)]
 pub struct BasicBlock {
     block_id: BlockLabel,
-    // HACK: fix this!
-    pub instructions: Vec<ThreeAddressInstruction>,
+    instructions: Vec<ThreeAddressInstruction>,
 }
 
 /// Why is this exact same enum as Bytecode? Because I messed up! 🙈
@@ -58,10 +57,14 @@ impl BasicBlock {
         self.block_id
     }
 
-    pub fn replace_branch_target(&mut self, target: BlockLabel) {
-        use ThreeAddressInstruction::BranchIfZero;
+    /// Replaces a basic block with a single no-op instruction to a branch with the given target.
+    ///
+    /// During lowering of the AST to IR, there's a case when the branch target of a conditional
+    /// branch is unknown. This fixes that.
+    pub fn replace_noop_with_branch_target(&mut self, target: BlockLabel) {
+        use ThreeAddressInstruction::{BranchIfZero, NoOp};
 
-        if !matches!(self.instructions[0], BranchIfZero(_),) {
+        if !matches!(self.instructions[..], [NoOp]) {
             panic!(
                 "tried to replace the branch of an unexpected basic block: {:?}",
                 self
