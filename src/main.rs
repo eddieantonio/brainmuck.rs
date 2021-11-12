@@ -69,12 +69,12 @@ fn interpret(program: &[ThreeAddressCode]) {
             }
             BranchIfZero(target) => {
                 if universe[current_address] == 0 {
-                    target.into()
+                    target.0
                 } else {
                     program_counter + 1
                 }
             }
-            BranchTo(target) => target.into(),
+            BranchTo(target) => target.0,
             Terminate => return,
         }
     }
