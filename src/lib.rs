@@ -3,44 +3,16 @@ use std::fmt;
 use std::io;
 
 mod errors;
+mod ir;
 mod parsing;
 
-pub use errors::CompilationError;
-pub use parsing::{parse, AbstractSyntaxTree, ConditionalID, Statement};
+pub use crate::errors::CompilationError;
+use crate::ir::{BasicBlock, BlockLabel, ControlFlowGraph, ThreeAddressInstruction};
+pub use crate::parsing::{parse, AbstractSyntaxTree, ConditionalID, Statement};
 
 /// A concrete offset from the beginning of a program to a specific instruction.
 #[derive(Debug, Clone, Copy)]
 pub struct BranchTarget(pub usize);
-
-/// A label for a basic block. Also serves as a branch target.
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
-pub struct BlockLabel(pub usize);
-
-/// A basic, internal representation of the code. This is a series of basic blocks
-#[derive(Debug)]
-pub struct ControlFlowGraph {
-    blocks: Vec<BasicBlock>,
-}
-
-/// A basic block has only one way in and exactly one way out
-#[derive(Debug)]
-pub struct BasicBlock {
-    block_id: BlockLabel,
-    instructions: Vec<ThreeAddressInstruction>,
-}
-
-/// Why is this exact same enum as Bytecode? Because I messed up! 🙈
-#[derive(Debug, Clone, Copy)]
-pub enum ThreeAddressInstruction {
-    ChangeVal(u8),
-    ChangeAddr(i32),
-    PutChar,
-    GetChar,
-    BranchIfZero(BlockLabel),
-    BranchTo(BlockLabel),
-    NoOp,
-    Terminate,
-}
 
 /// "Bytecode" is a misnomer, but it's the best idea for what this is. It's pseudo-assembly and one
 /// can write an intrepretter for it pretty easily 👀
@@ -68,13 +40,11 @@ pub fn compile_to_bytecode(ast: &AbstractSyntaxTree) -> Vec<Bytecode> {
     let mut pc = 0;
 
     // First pass. Generate code, but don't try making valid branch targets.
-    for BasicBlock {
-        block_id,
-        ref instructions,
-    } in cfg.blocks.iter()
-    {
+    for block in cfg.blocks().iter() {
         use ThreeAddressInstruction::*;
 
+        let block_id = block.label();
+        let instructions = block.instructions();
         branch_targets.insert(block_id, BranchTarget(pc));
 
         for &instr in instructions {
@@ -136,18 +106,12 @@ pub fn lower(ast: &AbstractSyntaxTree) -> ControlFlowGraph {
 
                 //  1. We need to start another basic block
                 //  2. ...therefore, we need to finish the current block.
-                blocks.push(BasicBlock {
-                    block_id: BlockLabel(block_id),
-                    instructions: current_block_instrs,
-                });
+                blocks.push(BasicBlock::new(BlockLabel(block_id), current_block_instrs));
                 block_id += 1;
 
                 //  3. This basic block will have exactly one instruction, to be determined later!
                 let this_block_id = BlockLabel(block_id);
-                blocks.push(BasicBlock {
-                    block_id: this_block_id,
-                    instructions: vec![NoOp],
-                });
+                blocks.push(BasicBlock::new(this_block_id, vec![NoOp]));
                 //  4. We haven't seen the block that matches up with this start conditional, so
                 //     we need to keep track of it for later.
                 associated_start_block.insert(cond_id, this_block_id);
@@ -166,10 +130,7 @@ pub fn lower(ast: &AbstractSyntaxTree) -> ControlFlowGraph {
                 current_block_instrs.push(BranchTo(start_block));
 
                 // This block is done...
-                blocks.push(BasicBlock {
-                    block_id: BlockLabel(block_id),
-                    instructions: current_block_instrs,
-                });
+                blocks.push(BasicBlock::new(BlockLabel(block_id), current_block_instrs));
                 block_id += 1;
                 current_block_instrs = Vec::new();
 
@@ -186,32 +147,19 @@ pub fn lower(ast: &AbstractSyntaxTree) -> ControlFlowGraph {
     current_block_instrs.push(Terminate);
 
     // Finalize the last block:
-    blocks.push(BasicBlock {
-        block_id: BlockLabel(block_id),
-        instructions: current_block_instrs,
-    });
+    blocks.push(BasicBlock::new(BlockLabel(block_id), current_block_instrs));
 
-    ControlFlowGraph { blocks }
+    ControlFlowGraph::new(blocks)
 }
 
 fn optimize(cfg: &ControlFlowGraph) -> ControlFlowGraph {
     let blocks = cfg
-        .blocks
+        .blocks()
         .iter()
-        .map(|block| {
-            let BasicBlock {
-                block_id,
-                instructions,
-            } = block;
-
-            BasicBlock {
-                block_id: *block_id,
-                instructions: peephole_optimize(&instructions),
-            }
-        })
+        .map(|block| BasicBlock::new(block.label(), peephole_optimize(block.instructions())))
         .collect();
 
-    ControlFlowGraph { blocks }
+    ControlFlowGraph::new(blocks)
 }
 
 fn peephole_optimize(instructions: &[ThreeAddressInstruction]) -> Vec<ThreeAddressInstruction> {
@@ -243,8 +191,8 @@ pub fn disassemble(code: &[Bytecode]) {
 
 pub fn print_cfg(cfg: &ControlFlowGraph) {
     use ThreeAddressInstruction::*;
-    for block in cfg.blocks.iter() {
-        let BlockLabel(n) = block.block_id;
+    for block in cfg.blocks().iter() {
+        let BlockLabel(n) = block.label();
         println!("L{}:", n);
 
         for &instr in block.instructions.iter() {
