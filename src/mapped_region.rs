@@ -1,7 +1,9 @@
-use libc::{c_void, size_t};
 use std::borrow::Borrow;
 use std::ops::{Drop, Index};
 use std::ptr;
+
+use errno::errno;
+use libc::{c_void, size_t};
 
 use crate::WritableRegion;
 
@@ -18,7 +20,7 @@ pub struct MappedRegion {
 
 impl MappedRegion {
     /// Allocate a region of the given size (in bytes).
-    pub fn allocate(size: usize) -> Result<Self, &'static str> {
+    pub fn allocate(size: usize) -> crate::Result<Self> {
         use libc::{MAP_ANON, MAP_JIT, MAP_PRIVATE};
         let memory;
         unsafe {
@@ -33,7 +35,7 @@ impl MappedRegion {
         }
 
         if memory == MAP_FAILED {
-            return Err("Could not allocate page");
+            return Err(errno().into());
         }
 
         Ok(MappedRegion {
@@ -60,7 +62,7 @@ impl MappedRegion {
     }
 
     /// Consumes the region and returns a writable region.
-    pub fn into_writable(self) -> Result<WritableRegion, &'static str> {
+    pub fn into_writable(self) -> crate::Result<WritableRegion> {
         WritableRegion::from(self)
     }
 }

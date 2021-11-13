@@ -28,6 +28,7 @@
 //! let f = unsafe { as_function!(code, fn() -> ()) };
 //! ```
 
+extern crate errno;
 extern crate libc;
 
 mod error;
@@ -39,7 +40,7 @@ pub use crate::executable_region::ExecutableRegion;
 pub use crate::mapped_region::MappedRegion;
 pub use crate::writable_region::WritableRegion;
 
-pub use crate::error::{Error, Result};
+pub use crate::error::{MappingError, Result};
 
 /// Cast an [ExecutableRegion] to a function pointer of your choosing.
 ///
@@ -132,5 +133,19 @@ mod tests {
         p[6] = 0x5f;
         p[5] = 0x03;
         p[4] = 0xC0;
+    }
+
+    #[test]
+    fn should_error_if_mapping_entire_address_space() {
+        use errno::Errno;
+
+        match MappedRegion::allocate(usize::MAX) {
+            Ok(_) => {
+                panic!("that should not have worked...");
+            }
+            Err(MappingError::Internal(Errno(c))) => {
+                assert!(c > 0, "expected an error value, such as EINVAL");
+            }
+        }
     }
 }

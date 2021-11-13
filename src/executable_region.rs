@@ -1,3 +1,4 @@
+use errno::errno;
 use libc::c_void;
 
 use crate::MappedRegion;
@@ -9,12 +10,12 @@ pub struct ExecutableRegion {
 
 impl ExecutableRegion {
     /// Consumes the [MappedRegion] and marks its memory as read-only and executable.
-    pub fn from(region: MappedRegion) -> Result<Self, &'static str> {
+    pub fn from(region: MappedRegion) -> crate::Result<Self> {
         use libc::{PROT_EXEC, PROT_READ};
 
         unsafe {
             if libc::mprotect(region.addr_mut(), region.len(), PROT_READ | PROT_EXEC) < 0 {
-                return Err("could not change protection");
+                return Err(errno().into());
             }
         }
 

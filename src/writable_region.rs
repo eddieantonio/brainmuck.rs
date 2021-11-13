@@ -2,6 +2,8 @@ use std::borrow::{Borrow, BorrowMut};
 use std::ops::{Index, IndexMut};
 use std::slice::SliceIndex;
 
+use errno::errno;
+
 use crate::ExecutableRegion;
 use crate::MappedRegion;
 
@@ -31,12 +33,12 @@ pub struct WritableRegion {
 
 impl WritableRegion {
     /// Consumes the existing [MappedRegion] and makes its memory writable.
-    pub fn from(region: MappedRegion) -> Result<Self, &'static str> {
+    pub fn from(region: MappedRegion) -> crate::Result<Self> {
         use libc::{PROT_READ, PROT_WRITE};
 
         unsafe {
             if libc::mprotect(region.addr_mut(), region.len(), PROT_READ | PROT_WRITE) < 0 {
-                return Err("could not change protection");
+                return Err(errno().into());
             }
         }
 
@@ -44,13 +46,13 @@ impl WritableRegion {
     }
 
     /// Convenience function to allocate a region and mark it writable in one go.
-    pub fn allocate(size: usize) -> Result<Self, &'static str> {
+    pub fn allocate(size: usize) -> crate::Result<Self> {
         let region = MappedRegion::allocate(size)?;
         WritableRegion::from(region)
     }
 
     /// Consumes the region and returns an read-only, [ExecutableRegion].
-    pub fn into_executable(self) -> Result<ExecutableRegion, &'static str> {
+    pub fn into_executable(self) -> crate::Result<ExecutableRegion> {
         ExecutableRegion::from(self.region)
     }
 }
