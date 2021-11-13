@@ -8,6 +8,13 @@ pub use crate::executable_region::ExecutableRegion;
 pub use crate::mapped_region::MappedRegion;
 pub use crate::writable_region::WritableRegion;
 
+#[macro_export]
+macro_rules! as_function {
+    ($region: expr, $fn_type: ty) => {
+        std::mem::transmute::<*const libc::c_void, $fn_type>($region.addr())
+    };
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -76,8 +83,7 @@ mod tests {
         let exec = p.to_executable()?;
         assert_eq!(initial_addr, exec.addr());
 
-        let function =
-            unsafe { std::mem::transmute::<*const libc::c_void, fn() -> u64>(exec.addr()) };
+        let function = unsafe { as_function!(exec, fn() -> u64) };
         let res = function();
         assert_eq!(42, res);
 
