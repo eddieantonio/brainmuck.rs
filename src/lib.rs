@@ -1,89 +1,55 @@
 extern crate libc;
 
 mod mapped_region;
-
-use std::borrow::{Borrow, BorrowMut};
-use std::ops::{Index, IndexMut};
-use std::slice::SliceIndex;
+mod writable_region;
 
 pub use crate::mapped_region::MappedRegion;
-
-pub struct WritableRegion {
-    region: MappedRegion,
-}
-
-impl WritableRegion {
-    pub fn from(region: MappedRegion) -> Result<Self, &'static str> {
-        use libc::{PROT_READ, PROT_WRITE};
-
-        unsafe {
-            if libc::mprotect(region.addr_mut(), region.len(), PROT_READ | PROT_WRITE) < 0 {
-                return Err("could not change protection");
-            }
-        }
-
-        Ok(Self { region })
-    }
-}
-
-impl<I> Index<I> for WritableRegion
-where
-    I: SliceIndex<[u8]>,
-{
-    type Output = I::Output;
-
-    fn index(&self, index: I) -> &Self::Output {
-        unsafe {
-            &std::slice::from_raw_parts(self.region.addr() as *const u8, self.region.len())[index]
-        }
-    }
-}
-
-impl<I> IndexMut<I> for WritableRegion
-where
-    I: SliceIndex<[u8]>,
-{
-    fn index_mut(&mut self, index: I) -> &mut Self::Output {
-        unsafe {
-            &mut std::slice::from_raw_parts_mut(
-                self.region.addr_mut() as *mut u8,
-                self.region.len(),
-            )[index]
-        }
-    }
-}
-
-impl Borrow<[u8]> for WritableRegion {
-    fn borrow(&self) -> &[u8] {
-        &self.region[..]
-    }
-}
-
-impl BorrowMut<[u8]> for WritableRegion {
-    fn borrow_mut(&mut self) -> &mut [u8] {
-        &mut self[..]
-    }
-}
+pub use crate::writable_region::WritableRegion;
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::ptr;
 
+    const MAPPING_SIZE: usize = 4096;
+
     #[test]
-    fn mapping_gives_a_valid_address() {
+    fn mapping_gives_a_valid_address() -> Result<(), &'static str> {
         use libc::MAP_FAILED;
 
-        let size = 4096;
-        match MappedRegion::allocate(size) {
-            Ok(region) => {
-                assert_eq!(size, region.len());
-                assert_ne!(region.addr(), ptr::null());
-                assert_ne!(region.addr(), MAP_FAILED);
-            }
-            Err(err) => {
-                panic!("could not map area: {}", err);
-            }
-        }
+        let region = MappedRegion::allocate(MAPPING_SIZE)?;
+        assert_eq!(MAPPING_SIZE, region.len());
+        assert_ne!(region.addr(), ptr::null());
+        assert_ne!(region.addr(), MAP_FAILED);
+        Ok(())
+    }
+
+    #[test]
+    fn can_write_to_writable_mapping() -> Result<(), &'static str> {
+        let region = MappedRegion::allocate(MAPPING_SIZE)?;
+        let mut p = WritableRegion::from(region)?;
+
+        // mov x0, #42
+        // s op          hw imm16                Rd
+        // 1 10 1|0010|1 00 0|0000|0000|0101|010 0|0000
+        // D      2    8      0    0    5    4     0
+        p[3] = 0xd2;
+        p[2] = 0x80;
+        p[1] = 0x05;
+        p[0] = 0x40;
+
+        // NB: x30 is the link register
+        // ret x30
+        //          opc   op2     op3     Rn     op4
+        // 1101|011 0|100 1|1111 |0000|00 11|110 0|0000
+        // D    6     9     F     0    3     C     0
+        p[7] = 0xd6;
+        p[6] = 0x5f;
+        p[5] = 0x03;
+        p[4] = 0xC0;
+
+        assert_eq!(0x40, p[0]);
+
+        Ok(())
     }
 }
