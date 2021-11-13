@@ -1,8 +1,10 @@
 extern crate libc;
 
 use libc::{c_void, size_t};
-use std::ops::{Index, IndexMut};
+use std::borrow::{Borrow, BorrowMut};
+use std::ops::{Drop, Index, IndexMut};
 use std::ptr;
+use std::slice::SliceIndex;
 
 #[cfg(target_os = "macos")]
 const MAP_FAILED: *mut c_void = (!0usize) as *mut c_void;
@@ -57,7 +59,7 @@ where
     }
 }
 
-impl std::borrow::Borrow<[u8]> for MappedRegion {
+impl Borrow<[u8]> for MappedRegion {
     fn borrow(&self) -> &[u8] {
         &self[..]
     }
@@ -83,7 +85,7 @@ impl WritableRegion {
 
 impl<I> Index<I> for WritableRegion
 where
-    I: std::slice::SliceIndex<[u8]>,
+    I: SliceIndex<[u8]>,
 {
     type Output = I::Output;
 
@@ -96,7 +98,7 @@ where
 
 impl<I> IndexMut<I> for WritableRegion
 where
-    I: std::slice::SliceIndex<[u8]>,
+    I: SliceIndex<[u8]>,
 {
     fn index_mut(&mut self, index: I) -> &mut Self::Output {
         unsafe {
@@ -105,19 +107,19 @@ where
     }
 }
 
-impl std::borrow::Borrow<[u8]> for WritableRegion {
+impl Borrow<[u8]> for WritableRegion {
     fn borrow(&self) -> &[u8] {
         &self.region[..]
     }
 }
 
-impl std::borrow::BorrowMut<[u8]> for WritableRegion {
+impl BorrowMut<[u8]> for WritableRegion {
     fn borrow_mut(&mut self) -> &mut [u8] {
         &mut self[..]
     }
 }
 
-impl std::ops::Drop for MappedRegion {
+impl Drop for MappedRegion {
     fn drop(&mut self) {
         println!("Unmapping that page...");
         unsafe {
