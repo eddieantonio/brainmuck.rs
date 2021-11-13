@@ -30,6 +30,7 @@
 
 extern crate libc;
 
+mod error;
 mod executable_region;
 mod mapped_region;
 mod writable_region;
@@ -37,6 +38,8 @@ mod writable_region;
 pub use crate::executable_region::ExecutableRegion;
 pub use crate::mapped_region::MappedRegion;
 pub use crate::writable_region::WritableRegion;
+
+pub use crate::error::{Error, Result};
 
 /// Cast an [ExecutableRegion] to a function pointer of your choosing.
 ///
@@ -61,7 +64,7 @@ mod tests {
     const MAPPING_SIZE: usize = 4096;
 
     #[test]
-    fn mapping_gives_a_valid_address() -> Result<(), &'static str> {
+    fn mapping_gives_a_valid_address() -> Result<()> {
         use libc::MAP_FAILED;
 
         let region = MappedRegion::allocate(MAPPING_SIZE)?;
@@ -72,7 +75,7 @@ mod tests {
     }
 
     #[test]
-    fn can_write_to_writable_mapping() -> Result<(), &'static str> {
+    fn can_write_to_writable_mapping() -> Result<()> {
         let region = MappedRegion::allocate(MAPPING_SIZE)?;
         let mut p = WritableRegion::from(region)?;
         write_return_42_function(&mut p);
@@ -83,7 +86,7 @@ mod tests {
     }
 
     #[test]
-    fn convert_writable_region_to_executable() -> Result<(), &'static str> {
+    fn convert_writable_region_to_executable() -> Result<()> {
         let region = MappedRegion::allocate(MAPPING_SIZE)?;
         let initial_addr = region.addr();
 
