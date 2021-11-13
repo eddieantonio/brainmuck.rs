@@ -1,5 +1,5 @@
 [package]
-name = "mmap_some_things"
+name = "mmap_utils"
 version = "0.1.0"
 edition = "2021"
 
