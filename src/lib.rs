@@ -1,8 +1,10 @@
 extern crate libc;
 
+mod executable_region;
 mod mapped_region;
 mod writable_region;
 
+pub use crate::executable_region::ExecutableRegion;
 pub use crate::mapped_region::MappedRegion;
 pub use crate::writable_region::WritableRegion;
 
@@ -49,6 +51,30 @@ mod tests {
         p[4] = 0xC0;
 
         assert_eq!(0x40, p[0]);
+
+        Ok(())
+    }
+
+    #[test]
+    fn convert_writable_region_to_executable() -> Result<(), &'static str> {
+        let region = MappedRegion::allocate(MAPPING_SIZE)?;
+        let initial_addr = region.addr();
+        let mut p = WritableRegion::from(region)?;
+
+        // mov x0, #42
+        p[3] = 0xd2;
+        p[2] = 0x80;
+        p[1] = 0x05;
+        p[0] = 0x40;
+
+        // ret x30
+        p[7] = 0xd6;
+        p[6] = 0x5f;
+        p[5] = 0x03;
+        p[4] = 0xC0;
+
+        let exec = p.to_executable()?;
+        assert_eq!(initial_addr, exec.addr());
 
         Ok(())
     }

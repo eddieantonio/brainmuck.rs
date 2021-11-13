@@ -2,6 +2,7 @@ use std::borrow::{Borrow, BorrowMut};
 use std::ops::{Index, IndexMut};
 use std::slice::SliceIndex;
 
+use crate::ExecutableRegion;
 use crate::MappedRegion;
 
 pub struct WritableRegion {
@@ -19,6 +20,11 @@ impl WritableRegion {
         }
 
         Ok(Self { region })
+    }
+
+    /// Consumes the region and returns an executable region. That means you can run it!
+    pub fn to_executable(self) -> Result<ExecutableRegion, &'static str> {
+        ExecutableRegion::from(self.region)
     }
 }
 
