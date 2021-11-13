@@ -1,5 +1,4 @@
 use errno::errno;
-use libc::c_void;
 
 use crate::MappedRegion;
 
@@ -14,7 +13,8 @@ impl ExecutableRegion {
         use libc::{PROT_EXEC, PROT_READ};
 
         unsafe {
-            if libc::mprotect(region.addr_mut(), region.len(), PROT_READ | PROT_EXEC) < 0 {
+            let addr = region.addr_mut() as *mut libc::c_void;
+            if libc::mprotect(addr, region.len(), PROT_READ | PROT_EXEC) < 0 {
                 return Err(errno().into());
             }
         }
@@ -25,7 +25,7 @@ impl ExecutableRegion {
     /// Returns the address of the mapped memory.
     ///
     /// Use [as_function!] to call this region of memory like a function.
-    pub fn addr(&self) -> *const c_void {
+    pub fn addr(&self) -> *const u8 {
         self.region.addr()
     }
 }

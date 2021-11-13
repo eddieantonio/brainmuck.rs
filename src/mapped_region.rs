@@ -45,15 +45,15 @@ impl MappedRegion {
     }
 
     /// Returns a pointer to mapped memory.
-    pub fn addr(&self) -> *const c_void {
-        self.addr
+    pub fn addr(&self) -> *const u8 {
+        self.addr as *const u8
     }
 
     /// Returns a mutable pointer to this region.
     ///
     /// Note: to write to this memory, first you must convert into a WritableRegion.
-    pub fn addr_mut(&self) -> *mut c_void {
-        self.addr
+    pub fn addr_mut(&self) -> *mut u8 {
+        self.addr as *mut u8
     }
 
     /// Return the length of region.

@@ -53,7 +53,7 @@ pub use crate::error::{MappingError, Result};
 #[macro_export]
 macro_rules! as_function {
     ($region: expr, $fn_type: ty) => {
-        std::mem::transmute::<*const libc::c_void, $fn_type>($region.addr())
+        std::mem::transmute::<*const u8, $fn_type>($region.addr())
     };
 }
 
@@ -66,12 +66,12 @@ mod tests {
 
     #[test]
     fn mapping_gives_a_valid_address() -> Result<()> {
-        use libc::MAP_FAILED;
+        use libc::{c_void, MAP_FAILED};
 
         let region = MappedRegion::allocate(MAPPING_SIZE)?;
         assert_eq!(MAPPING_SIZE, region.len());
-        assert_ne!(region.addr(), ptr::null());
-        assert_ne!(region.addr(), MAP_FAILED);
+        assert_ne!(region.addr() as *const c_void, ptr::null());
+        assert_ne!(region.addr() as *const c_void, MAP_FAILED);
         Ok(())
     }
 

@@ -37,7 +37,8 @@ impl WritableRegion {
         use libc::{PROT_READ, PROT_WRITE};
 
         unsafe {
-            if libc::mprotect(region.addr_mut(), region.len(), PROT_READ | PROT_WRITE) < 0 {
+            let addr = region.addr_mut() as *mut libc::c_void;
+            if libc::mprotect(addr, region.len(), PROT_READ | PROT_WRITE) < 0 {
                 return Err(errno().into());
             }
         }
@@ -64,9 +65,7 @@ where
     type Output = I::Output;
 
     fn index(&self, index: I) -> &Self::Output {
-        unsafe {
-            &std::slice::from_raw_parts(self.region.addr() as *const u8, self.region.len())[index]
-        }
+        unsafe { &std::slice::from_raw_parts(self.region.addr(), self.region.len())[index] }
     }
 }
 
@@ -76,10 +75,7 @@ where
 {
     fn index_mut(&mut self, index: I) -> &mut Self::Output {
         unsafe {
-            &mut std::slice::from_raw_parts_mut(
-                self.region.addr_mut() as *mut u8,
-                self.region.len(),
-            )[index]
+            &mut std::slice::from_raw_parts_mut(self.region.addr_mut(), self.region.len())[index]
         }
     }
 }
