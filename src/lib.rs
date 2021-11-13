@@ -1,3 +1,33 @@
+//! Map some memory for writing and executing.
+//!
+//! This crate is a wrapper around `mmap(2)`, `mprotect(2)`, and `munmap(2)` calls that uses Rust's
+//! type system to enforce what you can and can't do with a dynamically mapped region of memory.
+//! The intent is to allocate memory in order to inject machine code into the running executable
+//! and run it. This allows you to create, among other things, a JIT compiler.
+//!
+//! Here is the general workflow:
+//!
+//! ```
+//! extern crate mmap_jit;
+//!
+//! use mmap_jit::{MappedRegion, as_function};
+//!
+//! // Allocate some amount of memory.
+//! let mem = MappedRegion::allocate(4096).unwrap();
+//!
+//! // Make it writable.
+//! let mut mem = mem.into_writable().unwrap();
+//!
+//! // Write to your memory!
+//! mem[0] = 0xC3;
+//!
+//! // Make it executable.
+//! let code = mem.into_executable().unwrap();
+//!
+//! // Congrats, now you have a function!
+//! let f = unsafe { as_function!(code, fn() -> ()) };
+//! ```
+
 extern crate libc;
 
 mod executable_region;
@@ -8,6 +38,14 @@ pub use crate::executable_region::ExecutableRegion;
 pub use crate::mapped_region::MappedRegion;
 pub use crate::writable_region::WritableRegion;
 
+/// Cast an [ExecutableRegion] to a function pointer of your choosing.
+///
+/// Usage:
+/// ```ignore
+/// let e: ExecutableRegion = generate_code();
+/// let f = unsafe { as_function!(e, fn(u64) -> u64) };
+/// println!("use f(2) = {}", f(2));
+/// ```
 #[macro_export]
 macro_rules! as_function {
     ($region: expr, $fn_type: ty) => {
@@ -50,16 +88,24 @@ mod tests {
         let initial_addr = region.addr();
 
         let mut p = WritableRegion::from(region)?;
-        write_return_42_function(&mut p);
+        write_square_function(&mut p);
 
-        let exec = p.to_executable()?;
+        let exec = p.into_executable()?;
         assert_eq!(initial_addr, exec.addr());
 
-        let function = unsafe { as_function!(exec, fn() -> u64) };
-        let res = function();
-        assert_eq!(42, res);
+        let function = unsafe { as_function!(exec, fn(u64) -> u64) };
+        let res = function(4);
+        assert_eq!(16, res);
 
         Ok(())
+    }
+
+    fn write_square_function(p: &mut WritableRegion) {
+        let instr = 0x9b007c00u32;
+        p[0..4].copy_from_slice(&instr.to_ne_bytes());
+
+        let instr = 0xd65f03c0u32;
+        p[4..8].copy_from_slice(&instr.to_ne_bytes());
     }
 
     /// Writes (little-endian) AArch64 machine code to the writable region.
@@ -77,8 +123,8 @@ mod tests {
         // NB: x30 is the link register
         // ret x30
         //          opc   op2     op3     Rn     op4
-        // 1101|011 0|100 1|1111 |0000|00 11|110 0|0000
-        // D    6     9     F     0    3     C     0
+        // 1101|011 0|010 1|1111 |0000|00 11|110 0|0000
+        // D    6     5     F     0    3     C     0
         p[7] = 0xd6;
         p[6] = 0x5f;
         p[5] = 0x03;

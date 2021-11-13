@@ -3,23 +3,29 @@ use std::borrow::Borrow;
 use std::ops::{Drop, Index};
 use std::ptr;
 
+use crate::WritableRegion;
+
 #[cfg(target_os = "macos")]
 const MAP_FAILED: *mut c_void = (!0usize) as *mut c_void;
 
+/// A region of memory mapped by `mmap(2)`.
+///
+/// The `munmap(2)` is automatically called when the value is dropped.
 pub struct MappedRegion {
     addr: *mut c_void,
     len: size_t,
 }
 
 impl MappedRegion {
+    /// Allocate a region of the given size (in bytes).
     pub fn allocate(size: usize) -> Result<Self, &'static str> {
-        use libc::{MAP_ANON, MAP_JIT, MAP_PRIVATE, PROT_READ};
+        use libc::{MAP_ANON, MAP_JIT, MAP_PRIVATE};
         let memory;
         unsafe {
             memory = libc::mmap(
                 ptr::null_mut(),
                 size,
-                PROT_READ,
+                0,
                 MAP_PRIVATE | MAP_ANON | MAP_JIT,
                 -1,
                 0,
@@ -36,16 +42,26 @@ impl MappedRegion {
         })
     }
 
+    /// Returns a pointer to mapped memory.
     pub fn addr(&self) -> *const c_void {
         self.addr
     }
 
+    /// Returns a mutable pointer to this region.
+    ///
+    /// Note: to write to this memory, first you must convert into a WritableRegion.
     pub fn addr_mut(&self) -> *mut c_void {
         self.addr
     }
 
+    /// Return the length of region.
     pub fn len(&self) -> usize {
         self.len
+    }
+
+    /// Consumes the region and returns a writable region.
+    pub fn into_writable(self) -> Result<WritableRegion, &'static str> {
+        WritableRegion::from(self)
     }
 }
 

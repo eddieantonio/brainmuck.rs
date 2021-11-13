@@ -5,11 +5,32 @@ use std::slice::SliceIndex;
 use crate::ExecutableRegion;
 use crate::MappedRegion;
 
+/// A memory-mapped region that can be written to.
+///
+/// Indexing and borrowing from the WritableRegion returns `[u8]`.
+///
+/// ```
+/// use mmap_jit::WritableRegion;
+///
+/// let mut w = WritableRegion::allocate(1024).unwrap();
+/// w[0] = 42;
+/// assert_eq!(w[0], 42);
+///
+/// // Write multiple values at once:
+/// let num: u32 = 0xDEADBEEF;
+/// w[0..4].copy_from_slice(&num.to_ne_bytes());
+///
+/// let mut arr = [0u8;4];
+/// // Borrow:
+/// arr.copy_from_slice(&w[0..4]);
+/// assert_eq!(0xDEADBEEF, u32::from_ne_bytes(arr));
+/// ```
 pub struct WritableRegion {
     region: MappedRegion,
 }
 
 impl WritableRegion {
+    /// Consumes the existing [MappedRegion] and makes its memory writable.
     pub fn from(region: MappedRegion) -> Result<Self, &'static str> {
         use libc::{PROT_READ, PROT_WRITE};
 
@@ -22,8 +43,14 @@ impl WritableRegion {
         Ok(Self { region })
     }
 
-    /// Consumes the region and returns an executable region. That means you can run it!
-    pub fn to_executable(self) -> Result<ExecutableRegion, &'static str> {
+    /// Convenience function to allocate a region and mark it writable in one go.
+    pub fn allocate(size: usize) -> Result<Self, &'static str> {
+        let region = MappedRegion::allocate(size)?;
+        WritableRegion::from(region)
+    }
+
+    /// Consumes the region and returns an read-only, [ExecutableRegion].
+    pub fn into_executable(self) -> Result<ExecutableRegion, &'static str> {
         ExecutableRegion::from(self.region)
     }
 }
