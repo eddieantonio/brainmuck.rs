@@ -49,6 +49,15 @@ impl MappedRegion {
     }
 }
 
+impl Drop for MappedRegion {
+    fn drop(&mut self) {
+        unsafe {
+            // TODO: check return value
+            libc::munmap(self.addr, self.len);
+        }
+    }
+}
+
 impl<I> Index<I> for MappedRegion
 where
     I: std::slice::SliceIndex<[u8]>,
@@ -63,17 +72,5 @@ where
 impl Borrow<[u8]> for MappedRegion {
     fn borrow(&self) -> &[u8] {
         &self[..]
-    }
-}
-
-impl Drop for MappedRegion {
-    fn drop(&mut self) {
-        println!("Unmapping that page...");
-        unsafe {
-            libc::munmap(self.addr, self.len);
-        }
-        self.addr = std::ptr::null_mut();
-        self.len = 0;
-        println!("dropped!");
     }
 }
