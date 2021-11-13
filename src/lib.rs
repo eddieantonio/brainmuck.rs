@@ -37,7 +37,34 @@ mod tests {
     fn can_write_to_writable_mapping() -> Result<(), &'static str> {
         let region = MappedRegion::allocate(MAPPING_SIZE)?;
         let mut p = WritableRegion::from(region)?;
+        write_return_42_function(&mut p);
 
+        assert_eq!(0x40, p[0]);
+
+        Ok(())
+    }
+
+    #[test]
+    fn convert_writable_region_to_executable() -> Result<(), &'static str> {
+        let region = MappedRegion::allocate(MAPPING_SIZE)?;
+        let initial_addr = region.addr();
+
+        let mut p = WritableRegion::from(region)?;
+        write_return_42_function(&mut p);
+
+        let exec = p.to_executable()?;
+        assert_eq!(initial_addr, exec.addr());
+
+        let function = unsafe { as_function!(exec, fn() -> u64) };
+        let res = function();
+        assert_eq!(42, res);
+
+        Ok(())
+    }
+
+    /// Writes (little-endian) AArch64 machine code to the writable region.
+    /// The program returns 42.
+    fn write_return_42_function(p: &mut WritableRegion) {
         // mov x0, #42
         // s op          hw imm16                Rd
         // 1 10 1|0010|1 00 0|0000|0000|0101|010 0|0000
@@ -56,37 +83,5 @@ mod tests {
         p[6] = 0x5f;
         p[5] = 0x03;
         p[4] = 0xC0;
-
-        assert_eq!(0x40, p[0]);
-
-        Ok(())
-    }
-
-    #[test]
-    fn convert_writable_region_to_executable() -> Result<(), &'static str> {
-        let region = MappedRegion::allocate(MAPPING_SIZE)?;
-        let initial_addr = region.addr();
-        let mut p = WritableRegion::from(region)?;
-
-        // mov x0, #42
-        p[3] = 0xd2;
-        p[2] = 0x80;
-        p[1] = 0x05;
-        p[0] = 0x40;
-
-        // ret x30
-        p[7] = 0xd6;
-        p[6] = 0x5f;
-        p[5] = 0x03;
-        p[4] = 0xC0;
-
-        let exec = p.to_executable()?;
-        assert_eq!(initial_addr, exec.addr());
-
-        let function = unsafe { as_function!(exec, fn() -> u64) };
-        let res = function();
-        assert_eq!(42, res);
-
-        Ok(())
     }
 }
