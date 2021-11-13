@@ -7,13 +7,13 @@ use std::ptr;
 #[cfg(target_os = "macos")]
 const MAP_FAILED: *mut c_void = (!0usize) as *mut c_void;
 
-struct WritableMap {
+struct MappedRegion {
     addr: *mut c_void,
     len: size_t,
 }
 
 fn main() -> Result<(), &'static str> {
-    let mut my_page = WritableMap::allocate(4096)?;
+    let mut my_page = MappedRegion::allocate(4096)?;
     println!(
         "my page is at {:0X} and has size {}",
         my_page.addr() as usize,
@@ -45,7 +45,7 @@ fn assemble(p: &mut [u8]) {
     p[4] = 0xC0;
 }
 
-impl WritableMap {
+impl MappedRegion {
     fn allocate(size: usize) -> Result<Self, &'static str> {
         use libc::{MAP_ANON, MAP_JIT, MAP_PRIVATE, PROT_READ, PROT_WRITE};
         let memory;
@@ -64,7 +64,7 @@ impl WritableMap {
             return Err("Could not allocate page");
         }
 
-        Ok(WritableMap {
+        Ok(MappedRegion {
             addr: memory,
             len: size,
         })
@@ -79,7 +79,7 @@ impl WritableMap {
     }
 }
 
-impl<I> Index<I> for WritableMap
+impl<I> Index<I> for MappedRegion
 where
     I: std::slice::SliceIndex<[u8]>,
 {
@@ -90,7 +90,7 @@ where
     }
 }
 
-impl<I> IndexMut<I> for WritableMap
+impl<I> IndexMut<I> for MappedRegion
 where
     I: std::slice::SliceIndex<[u8]>,
 {
@@ -99,19 +99,19 @@ where
     }
 }
 
-impl std::borrow::Borrow<[u8]> for WritableMap {
+impl std::borrow::Borrow<[u8]> for MappedRegion {
     fn borrow(&self) -> &[u8] {
         &self[..]
     }
 }
 
-impl std::borrow::BorrowMut<[u8]> for WritableMap {
+impl std::borrow::BorrowMut<[u8]> for MappedRegion {
     fn borrow_mut(&mut self) -> &mut [u8] {
         &mut self[..]
     }
 }
 
-impl std::ops::Drop for WritableMap {
+impl std::ops::Drop for MappedRegion {
     fn drop(&mut self) {
         println!("Unmapping that page...");
         unsafe {
