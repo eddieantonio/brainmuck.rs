@@ -76,6 +76,11 @@ mod tests {
         let exec = p.to_executable()?;
         assert_eq!(initial_addr, exec.addr());
 
+        let function =
+            unsafe { std::mem::transmute::<*const libc::c_void, fn() -> u64>(exec.addr()) };
+        let res = function();
+        assert_eq!(42, res);
+
         Ok(())
     }
 }
