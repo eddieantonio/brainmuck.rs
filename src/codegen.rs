@@ -1,6 +1,8 @@
 use mmap_jit::{as_function, WritableRegion};
+use std::fmt;
 
 use crate::ir::ControlFlowGraph;
+use crate::ir::ThreeAddressInstruction;
 
 type Program = fn(u64) -> u64;
 
@@ -8,8 +10,20 @@ type Program = fn(u64) -> u64;
 struct X(pub u8);
 const SP: X = X(31);
 
+impl fmt::Display for X {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "x{}", self.0)
+    }
+}
+
 #[derive(Clone, Copy)]
 struct W(pub u8);
+
+impl fmt::Display for W {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "w{}", self.0)
+    }
+}
 
 struct AArch64Assembly {
     instr: Vec<u8>,
@@ -29,70 +43,113 @@ impl AArch64Assembly {
     }
 
     pub fn add(&mut self, wd: W, wn: W, imm: u16) {
-        self.emit(0)
+        println!("add {}, {}, {}", wd, wn, imm);
+        self.emit(0);
     }
 
     // branch and line from register
     pub fn blr(&mut self, rd: X) {
-        self.emit(0)
+        println!("blr {}", rd);
+        self.emit(0);
     }
 
     /// ret (return from subroutine)
     pub fn ret(&mut self) {
+        println!("ret x30");
         self.emit(0xd65f03c0);
     }
+
+    // also useful for addressing modes:
+    // https://thinkingeek.com/2016/11/13/exploring-aarch64-assembler-chapter-5/
 
     /// store pair of registers
     /// https://developer.arm.com/documentation/dui0801/h/A64-Data-Transfer-Instructions/STP
     pub fn stp_preindex(&mut self, xt1: X, xt2: X, xn: X, imm: i16) {
+        // https://developer.arm.com/documentation/102374/0101/Loads-and-stores---addressing
+        println!("stp {}, {}, [{}, #{}]!", xt1, xt2, xn, imm);
         self.emit(0xA9BE7BFD);
     }
 
     pub fn ldp_postindex(&mut self, xt1: X, xt2: X, xn: X, imm: i16) {
+        println!("ldp {}, {}, [{}], #{}", xt1, xt2, xn, imm);
+        // https://developer.arm.com/documentation/102374/0101/Loads-and-stores---addressing
         self.emit(0xA9BE7BFD);
     }
 
     /// store with immediate offset
     /// https://developer.arm.com/documentation/dui0802/a/CIHGJHED
     pub fn str_imm(&mut self, rt: X, rn: X, offset: i16) {
+        // https://developer.arm.com/documentation/102374/0101/Loads-and-stores---addressing
+        println!("str {}, [{}, #{}]", rt, rn, offset);
         self.emit(0);
     }
 
     pub fn ldr_imm(&mut self, rt: X, rn: X, offset: i16) {
+        println!("ldr {}, [{}, #{}]", rt, rn, offset);
         self.emit(0);
     }
 
     /// Subract (immediate)
     /// https://developer.arm.com/documentation/100076/0100/a64-instruction-set-reference/a64-general-instructions/sub--immediate-?lang=en
     pub fn sub(&mut self, wd: W, wn: W, imm: u16) {
-        self.emit(0)
+        println!("sub {}, {}, #{}", wd, wn, imm);
+        self.emit(0);
     }
 
     /// Move (register)
     /// https://developer.arm.com/documentation/100069/0609/A64-General-Instructions/MOV--register-
     pub fn mov(&mut self, rd: X, op2: X) {
+        println!("mov {}, {}", rd, op2);
         self.emit(0);
     }
 
     /// Load Register Byte (immediate)
     pub fn ldrb(&mut self, wt: W, xn: X, pimm: u16) {
+        // https://developer.arm.com/documentation/102374/0101/Loads-and-stores---addressing
+        println!("ldrb {}, [{}, #{}]", wt, xn, pimm);
         self.emit(0);
     }
 
     /// Store Register Byte (immediate)
     /// https://developer.arm.com/documentation/100076/0100/a64-instruction-set-reference/a64-data-transfer-instructions/strb--immediate-?lang=en
     pub fn strb(&mut self, wt: W, xn: X, pimm: u16) {
+        // https://developer.arm.com/documentation/102374/0101/Loads-and-stores---addressing
+        println!("strb {}, [{}, #{}]", wt, xn, pimm);
         self.emit(0);
     }
 
     pub fn cbz(&mut self, rn: W, l: u16) {
+        println!("cbz {}, L{}", rn, l);
         self.emit(0);
     }
 
     pub fn b(&mut self, l: u16) {
+        println!("b L{}", l);
         self.emit(0);
     }
 }
+
+// REGISTERS:
+//
+// x0                 - working byte
+const VAL32: W = W(0);
+// x19 (callee saved) - pointer to arena (during function)
+const ADDR: X = X(19);
+const ADDR32: W = W(19);
+// x20 (callee saved) - getchar (during function)
+const GETCHAR: X = X(20);
+// x21 (callee saved) - getchar (during function)
+const PUTCHAR: X = X(21);
+// x0  (argument)     - pointer to arena (as argument)
+// x1  (argument)     - putchar
+// x1  (argument)     - getchar
+//
+// x29                - frame pointer
+const FP: X = X(29);
+// x30                - link register
+const LR: X = X(30);
+//
+// see: https://en.wikipedia.org/wiki/Calling_convention#ARM_(A64)
 
 pub fn run(tac: &ControlFlowGraph) {
     let sample_program = [
@@ -104,43 +161,27 @@ pub fn run(tac: &ControlFlowGraph) {
 
     let mut machine_code = AArch64Assembly::new();
 
-    // REGISTERS:
-    //
-    // x0                 - working byte
-    //const VAL64: X = X(0);
-    const VAL32: W = W(0);
-    // x19 (callee saved) - pointer to arena (during function)
-    const ADDR: X = X(19);
-    // x20 (callee saved) - getchar (during function)
-    const GETCHAR: X = X(20);
-    // x21 (callee saved) - getchar (during function)
-    const PUTCHAR: X = X(21);
-    // x0  (argument)     - pointer to arena (as argument)
-    // x1  (argument)     - putchar
-    // x1  (argument)     - getchar
-    //
-    // x29                - frame pointer
-    // x30                - stack pointer
-    //
-    // see: https://en.wikipedia.org/wiki/Calling_convention#ARM_(A64)
-    //
+    // godbolt.org is useful for generating instructions
+
     // STACK
     //
     // -0x40 [previous  fp]
-    // -0x30 [previous  sp]
-    // -0x20 [previous x19]
-    // -0x10 [previous x20]
-    //  0x00 [previous x21]
+    // -0x30 [previous  lr]
+    // -0x20 [previous x20]
+    // -0x10 [previous x21]
+    //  0x00 [previous x19]
     //
     // fp <- sp
     // x19 <- x0
+    // x20 <- x1
+    // x21 <- x2
 
     // function intro
     //  1. setup stack
     //  stp	x29, x30, [sp, #-32]!
-    machine_code.stp_preindex(X(29), X(30), SP, -32);
+    machine_code.stp_preindex(FP, LR, SP, -32);
     //  mov	x29, sp
-    machine_code.mov(X(29), SP);
+    machine_code.mov(FP, SP);
     //  2. save registers
     //  stp	x20, x21, [sp, #-32]!
     machine_code.stp_preindex(GETCHAR, PUTCHAR, SP, -32);
@@ -152,13 +193,28 @@ pub fn run(tac: &ControlFlowGraph) {
     machine_code.mov(GETCHAR, X(2));
 
     // generate instructions
-    let instr = tac.blocks()[0].instructions()[0];
-    use crate::ir::ThreeAddressInstruction::*;
+    for block in tac.blocks().iter() {
+        for &instr in block.instructions().iter() {
+            generate_instructions(&mut machine_code, instr);
+        }
+    }
+
+    let mut mem = WritableRegion::allocate(sample_program.len()).unwrap();
+    (&mut mem[0..sample_program.len()]).copy_from_slice(&sample_program);
+    let code = mem.into_executable().unwrap();
+
+    let program = unsafe { as_function!(code, Program) };
+    let res = program(4);
+    assert_eq!(16, res);
+}
+
+fn generate_instructions(machine_code: &mut AArch64Assembly, instr: ThreeAddressInstruction) {
+    use ThreeAddressInstruction::*;
     match instr {
         NoOp => (),
         ChangeAddr(x) => {
             // TODO: actually, should load the value if it's too big, then store it.
-            machine_code.add(VAL32, VAL32, (x & 0xFFFF) as u16);
+            machine_code.add(ADDR32, ADDR32, (x & 0xFFFF) as u16);
         }
         ChangeVal(x) => {
             // x0 <- *p
@@ -196,16 +252,8 @@ pub fn run(tac: &ControlFlowGraph) {
         Terminate => {
             machine_code.ldr_imm(ADDR, SP, 16);
             machine_code.ldp_postindex(PUTCHAR, GETCHAR, SP, 16);
-            machine_code.ldp_postindex(X(29), X(30), SP, 16);
+            machine_code.ldp_postindex(FP, LR, SP, 16);
             machine_code.ret();
         }
     }
-
-    let mut mem = WritableRegion::allocate(sample_program.len()).unwrap();
-    (&mut mem[0..sample_program.len()]).copy_from_slice(&sample_program);
-    let code = mem.into_executable().unwrap();
-
-    let program = unsafe { as_function!(code, Program) };
-    let res = program(4);
-    assert_eq!(16, res);
 }
