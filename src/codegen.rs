@@ -177,7 +177,7 @@ pub fn run(tac: &ControlFlowGraph) {
         0xc0, 0x03, 0x5f, 0xd6,
     ];
 
-    let mut machine_code = AArch64Assembly::new();
+    let mut asm = AArch64Assembly::new();
 
     // godbolt.org is useful for generating instructions
 
@@ -200,24 +200,24 @@ pub fn run(tac: &ControlFlowGraph) {
     //  1. setup stack
     //  stp	x29, x30, [sp, #-48]!
     //  mov	x29, sp
-    machine_code.stp_preindex(FP, LR, SP, -0x30);
-    machine_code.mov(FP, SP);
+    asm.stp_preindex(FP, LR, SP, -0x30);
+    asm.mov(FP, SP);
 
     //  2. save registers
     //  stp x20, x21, [sp, 0x20]
     //  str	x19, [sp, 0x30]
-    machine_code.stp_offset(PUTCHAR, GETCHAR, SP, 0x20);
-    machine_code.str_imm(ADDR, SP, 0x30);
+    asm.stp_offset(PUTCHAR, GETCHAR, SP, 0x20);
+    asm.str_imm(ADDR, SP, 0x30);
 
     // place the pointers somewhere safe
-    machine_code.mov(ADDR, X(0));
-    machine_code.mov(PUTCHAR, X(1));
-    machine_code.mov(GETCHAR, X(2));
+    asm.mov(ADDR, X(0));
+    asm.mov(PUTCHAR, X(1));
+    asm.mov(GETCHAR, X(2));
 
     // generate instructions
     for block in tac.blocks().iter() {
         for &instr in block.instructions().iter() {
-            generate_instructions(&mut machine_code, instr);
+            generate_instructions(&mut asm, instr);
         }
     }
 
@@ -230,55 +230,55 @@ pub fn run(tac: &ControlFlowGraph) {
     assert_eq!(16, res);
 }
 
-fn generate_instructions(machine_code: &mut AArch64Assembly, instr: ThreeAddressInstruction) {
+fn generate_instructions(asm: &mut AArch64Assembly, instr: ThreeAddressInstruction) {
     use ThreeAddressInstruction::*;
     match instr {
         NoOp => (),
         ChangeAddr(x) => {
             // TODO: actually, should load the value if it's too big, then store it.
-            machine_code.add(ADDR32, ADDR32, (x & 0xFFFF) as u16);
+            asm.add(ADDR32, ADDR32, (x & 0xFFFF) as u16);
         }
         ChangeVal(x) => {
             // x0 <- *p
-            machine_code.ldrb(VAL32, ADDR, 0);
+            asm.ldrb(VAL32, ADDR, 0);
 
             if (x as i8) >= 0 {
                 // x0 <- x0 + x
-                machine_code.add(VAL32, VAL32, x as u16);
+                asm.add(VAL32, VAL32, x as u16);
             } else {
                 // x0 <- x0 - x
-                machine_code.sub(VAL32, VAL32, -(x as i8) as u16);
+                asm.sub(VAL32, VAL32, -(x as i8) as u16);
             }
 
             // *p = x0
-            machine_code.strb(VAL32, ADDR, 0);
+            asm.strb(VAL32, ADDR, 0);
         }
         PutChar => {
-            machine_code.ldrb(VAL32, ADDR, 0);
-            machine_code.blr(PUTCHAR);
+            asm.ldrb(VAL32, ADDR, 0);
+            asm.blr(PUTCHAR);
         }
         GetChar => {
-            machine_code.blr(GETCHAR);
-            machine_code.strb(VAL32, ADDR, 0);
+            asm.blr(GETCHAR);
+            asm.strb(VAL32, ADDR, 0);
         }
         BranchIfZero(_) => {
             // ldbr     x0, [x19]
-            machine_code.ldrb(VAL32, ADDR, 0);
+            asm.ldrb(VAL32, ADDR, 0);
             // cbz    w0, L*
-            machine_code.cbz(VAL32, 0);
+            asm.cbz(VAL32, 0);
         }
         BranchTo(_) => {
             // b    L*
-            machine_code.b(0);
+            asm.b(0);
         }
         Terminate => {
             // ldr x19, [sp, #0x30]
             // ldp x20, x21 [sp, #0x20]
             // ldp x29, x30 [sp], #0x20
-            machine_code.ldr_imm(ADDR, SP, 0x30);
-            machine_code.ldp_offset(GETCHAR, PUTCHAR, SP, 0x20);
-            machine_code.ldp_postindex(FP, LR, SP, 0x30);
-            machine_code.ret();
+            asm.ldr_imm(ADDR, SP, 0x30);
+            asm.ldp_offset(GETCHAR, PUTCHAR, SP, 0x20);
+            asm.ldp_postindex(FP, LR, SP, 0x30);
+            asm.ret();
         }
     }
 }
