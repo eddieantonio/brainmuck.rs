@@ -42,9 +42,7 @@ impl AArch64Assembly {
     // The following instructions are in the order given by
     // Chapter C3 - A64 Instruction Set Encoding
 
-    // Data processing -- immediate
-
-    // Branch, exception generation, and system instructions /////////
+    // Branch, exception generation, and system instructions //////////////////////////////////////
 
     /// Compare register and Branch if Zero
     pub fn cbz(&mut self, rt: W, l: i32) {
@@ -64,7 +62,22 @@ impl AArch64Assembly {
         self.emit(base | Imm(26, l).at(0..=25));
     }
 
-    // Loads and stores ////////////////////////////////////////////////
+    /// Branch and Link to Register
+    pub fn blr(&mut self, rn: X) {
+        asm!("blr {}", rn);
+        //                   opc    op2    op3    rn   op4;
+        let base = 0b1101011_0001_11111_000000_00000_00000;
+        self.emit(base | rn.at(5..=9));
+    }
+
+    /// ret (return from subroutine)
+    pub fn ret(&mut self) {
+        asm!("ret x30");
+        let base = 0b1101011_0010_11111_000000_00000_00000;
+        self.emit(base | X(30).at(5..=9));
+    }
+
+    // Load and stores ////////////////////////////////////////////////////////////////////////////
 
     /// store pair of registers
     /// https://developer.arm.com/documentation/dui0801/h/A64-Data-Transfer-Instructions/STP
@@ -101,7 +114,20 @@ impl AArch64Assembly {
         asm!("ldr {}, [{}, #{}]", rt, rn, offset);
     }
 
-    // Data processing -- immediate /////////////////////////////////////////////////////
+    /// Load Register Byte (immediate)
+    pub fn ldrb(&mut self, wt: W, xn: X, pimm: u16) {
+        // https://developer.arm.com/documentation/102374/0101/Loads-and-stores---addressing
+        asm!("ldrb {}, [{}, #{}]", wt, xn, pimm);
+    }
+
+    /// Store Register Byte (immediate)
+    /// https://developer.arm.com/documentation/100076/0100/a64-instruction-set-reference/a64-data-transfer-instructions/strb--immediate-?lang=en
+    pub fn strb(&mut self, wt: W, xn: X, pimm: u16) {
+        // https://developer.arm.com/documentation/102374/0101/Loads-and-stores---addressing
+        asm!("strb {}, [{}, #{}]", wt, xn, pimm);
+    }
+
+    // Data processing -- immediate ///////////////////////////////////////////////////////////////
 
     pub fn add(&mut self, wd: W, wn: W, imm: u16) {
         asm!("add {}, {}, {}", wd, wn, imm);
@@ -115,6 +141,17 @@ impl AArch64Assembly {
         //          sfop S       <<        imm12 Rn    Rd
         let base = 0b1_0_0_10001_00_000000000000_00000_00000;
         self.emit(base | Imm(12, imm as i32).at(10..=21) | xn.at(5..=9) | xd.at(0..=4));
+    }
+
+    /// Move (register) -- shh! Secretly this is an add!
+    /// https://developer.arm.com/documentation/100069/0609/A64-General-Instructions/MOV--register-
+    pub fn mov(&mut self, rd: X, rn: X) {
+        asm!("mov {}, {}", rd, rn);
+        //
+        //          sf op
+        //          sfop S       <<        imm12 Rn    Rd
+        let base = 0b1_0_0_10001_00_000000000000_11111_00000;
+        self.emit(base | rn.at(5..=9) | rd.at(0..=4));
     }
 
     /// Subract (immediate)
@@ -134,36 +171,6 @@ impl AArch64Assembly {
     }
 
     // Data processing -- register //////////////////////////////////////////////////////
-
-    // branch and line from register
-    pub fn blr(&mut self, rd: X) {
-        asm!("blr {}", rd);
-    }
-
-    /// ret (return from subroutine)
-    pub fn ret(&mut self) {
-        asm!("ret x30");
-        self.emit(0xD65F03C0);
-    }
-
-    /// Move (register)
-    /// https://developer.arm.com/documentation/100069/0609/A64-General-Instructions/MOV--register-
-    pub fn mov(&mut self, rd: X, op2: X) {
-        asm!("mov {}, {}", rd, op2);
-    }
-
-    /// Load Register Byte (immediate)
-    pub fn ldrb(&mut self, wt: W, xn: X, pimm: u16) {
-        // https://developer.arm.com/documentation/102374/0101/Loads-and-stores---addressing
-        asm!("ldrb {}, [{}, #{}]", wt, xn, pimm);
-    }
-
-    /// Store Register Byte (immediate)
-    /// https://developer.arm.com/documentation/100076/0100/a64-instruction-set-reference/a64-data-transfer-instructions/strb--immediate-?lang=en
-    pub fn strb(&mut self, wt: W, xn: X, pimm: u16) {
-        // https://developer.arm.com/documentation/102374/0101/Loads-and-stores---addressing
-        asm!("strb {}, [{}, #{}]", wt, xn, pimm);
-    }
 }
 
 /////////////////////////////////// Traits and implementations ////////////////////////////////////
