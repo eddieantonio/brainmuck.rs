@@ -12,7 +12,11 @@ const SP: X = X(31);
 
 impl fmt::Display for X {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "x{}", self.0)
+        if self.0 == 31 {
+            write!(f, "sp")
+        } else {
+            write!(f, "x{}", self.0)
+        }
     }
 }
 
@@ -70,8 +74,22 @@ impl AArch64Assembly {
         self.emit(0xA9BE7BFD);
     }
 
+    /// store pair of registers
+    /// https://developer.arm.com/documentation/dui0801/h/A64-Data-Transfer-Instructions/STP
+    pub fn stp_offset(&mut self, xt1: X, xt2: X, xn: X, imm: i16) {
+        // https://developer.arm.com/documentation/102374/0101/Loads-and-stores---addressing
+        println!("stp {}, {}, [{}, #{}]", xt1, xt2, xn, imm);
+        self.emit(0xA9BE7BFD);
+    }
+
     pub fn ldp_postindex(&mut self, xt1: X, xt2: X, xn: X, imm: i16) {
         println!("ldp {}, {}, [{}], #{}", xt1, xt2, xn, imm);
+        // https://developer.arm.com/documentation/102374/0101/Loads-and-stores---addressing
+        self.emit(0xA9BE7BFD);
+    }
+
+    pub fn ldp_offset(&mut self, xt1: X, xt2: X, xn: X, imm: i16) {
+        println!("ldp {}, {}, [{}, #{}]", xt1, xt2, xn, imm);
         // https://developer.arm.com/documentation/102374/0101/Loads-and-stores---addressing
         self.emit(0xA9BE7BFD);
     }
@@ -165,11 +183,13 @@ pub fn run(tac: &ControlFlowGraph) {
 
     // STACK
     //
-    // -0x40 [previous  fp]
-    // -0x30 [previous  lr]
-    // -0x20 [previous x20]
-    // -0x10 [previous x21]
-    //  0x00 [previous x19]
+    // sp + 0x30 [previous x19]
+    // sp + 0x28 [ ..unused   ]
+    // sp + 0x20 [previous x20]
+    // sp + 0x18 [previous x21]
+    // sp + 0x10 [previous  fp]
+    // sp + 0x08 [previous  lr]
+    // fp -> 0
     //
     // fp <- sp
     // x19 <- x0
@@ -178,17 +198,19 @@ pub fn run(tac: &ControlFlowGraph) {
 
     // function intro
     //  1. setup stack
-    //  stp	x29, x30, [sp, #-32]!
-    machine_code.stp_preindex(FP, LR, SP, -32);
+    //  stp	x29, x30, [sp, #-48]!
     //  mov	x29, sp
+    machine_code.stp_preindex(FP, LR, SP, -0x30);
     machine_code.mov(FP, SP);
+
     //  2. save registers
-    //  stp	x20, x21, [sp, #-32]!
-    machine_code.stp_preindex(GETCHAR, PUTCHAR, SP, -32);
-    //  str	x19, [sp, #16]
-    machine_code.str_imm(ADDR, SP, 16);
+    //  stp x20, x21, [sp, 0x20]
+    //  str	x19, [sp, 0x30]
+    machine_code.stp_offset(PUTCHAR, GETCHAR, SP, 0x20);
+    machine_code.str_imm(ADDR, SP, 0x30);
 
     // place the pointers somewhere safe
+    machine_code.mov(ADDR, X(0));
     machine_code.mov(PUTCHAR, X(1));
     machine_code.mov(GETCHAR, X(2));
 
@@ -250,9 +272,12 @@ fn generate_instructions(machine_code: &mut AArch64Assembly, instr: ThreeAddress
             machine_code.b(0);
         }
         Terminate => {
-            machine_code.ldr_imm(ADDR, SP, 16);
-            machine_code.ldp_postindex(PUTCHAR, GETCHAR, SP, 16);
-            machine_code.ldp_postindex(FP, LR, SP, 16);
+            // ldr x19, [sp, #0x30]
+            // ldp x20, x21 [sp, #0x20]
+            // ldp x29, x30 [sp], #0x20
+            machine_code.ldr_imm(ADDR, SP, 0x30);
+            machine_code.ldp_offset(GETCHAR, PUTCHAR, SP, 0x20);
+            machine_code.ldp_postindex(FP, LR, SP, 0x30);
             machine_code.ret();
         }
     }
