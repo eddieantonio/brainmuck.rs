@@ -30,33 +30,34 @@ const SP: X = X(31);
 // also useful for addressing modes:
 // https://thinkingeek.com/2016/11/13/exploring-aarch64-assembler-chapter-5/
 
-macro_rules! asm {
-    ($($fmt: expr),+) => {{
-        print!("\t");
-        println!($($fmt),+);
-    }};
-}
-
-type Program = fn(u64) -> u64;
+type Program = fn(*mut u8, fn(u32) -> u32, fn() -> u32) -> u64;
 
 pub fn run(cfg: &ControlFlowGraph) {
-    let sample_program = [
-        // mul x0, x0, x0
-        0x00, 0x7c, 0x00, 0x9b, // ..
-        // ret x30
-        0xc0, 0x03, 0x5f, 0xd6,
-    ];
-
     let mut code = CodeGenerator::new();
-    code.generate(&cfg);
+    let binary = code.assemble(&cfg);
 
-    let mut mem = WritableRegion::allocate(sample_program.len()).unwrap();
-    (&mut mem[0..sample_program.len()]).copy_from_slice(&sample_program);
+    let mut mem = WritableRegion::allocate(binary.len()).unwrap();
+    (&mut mem[0..binary.len()]).copy_from_slice(&binary);
     let code = mem.into_executable().unwrap();
 
     let program = unsafe { as_function!(code, Program) };
-    let res = program(4);
-    assert_eq!(16, res);
+
+    let mut arena = [0u8; 4096];
+    program(arena.as_mut_ptr(), putchar, getchar);
+}
+
+fn getchar() -> u32 {
+    use std::io::{self, Read};
+    let mut one_byte = [0u8];
+    io::stdin()
+        .read_exact(&mut one_byte)
+        .expect("could not read even a single byte!");
+    one_byte[0] as u32
+}
+
+fn putchar(c: u32) -> u32 {
+    print!("{}", (c & 0xFF) as u8 as char);
+    1
 }
 
 struct CodeGenerator {
@@ -70,9 +71,9 @@ impl CodeGenerator {
         }
     }
 
-    pub fn generate(&mut self, cfg: &ControlFlowGraph) {
-        asm!(".globl _bf_program");
-        asm!(".p2align 2");
+    pub fn assemble(&mut self, cfg: &ControlFlowGraph) -> &[u8] {
+        println!("\t.globl _bf_program");
+        println!("\t.p2align 2");
         println!("_bf_program:");
 
         // function intro
@@ -84,6 +85,8 @@ impl CodeGenerator {
             cfg.last_instruction(),
             Some(ThreeAddressInstruction::Terminate)
         ));
+
+        self.asm.machine_code()
     }
 
     // STACK

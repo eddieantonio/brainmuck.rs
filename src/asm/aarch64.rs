@@ -31,10 +31,8 @@ impl AArch64Assembly {
         AArch64Assembly { instr: Vec::new() }
     }
 
-    fn emit(&mut self, instruction: u32) {
-        let arr = instruction.to_le_bytes();
-        self.instr.extend_from_slice(&arr);
-        println!("\t{:04X}", instruction);
+    pub fn machine_code(&self) -> &[u8] {
+        &self.instr[..]
     }
 
     // Instructions
@@ -170,7 +168,13 @@ impl AArch64Assembly {
         self.emit(base | Imm(12, imm as i32).at(10..=21) | xn.at(5..=9) | xd.at(0..=4));
     }
 
-    // Data processing -- register //////////////////////////////////////////////////////
+    // Private methods ////////////////////////////////////////////////////////////////////////////
+
+    fn emit(&mut self, instruction: u32) {
+        let arr = instruction.to_le_bytes();
+        self.instr.extend_from_slice(&arr);
+        println!("\t{:04X}", instruction);
+    }
 }
 
 /////////////////////////////////// Traits and implementations ////////////////////////////////////
