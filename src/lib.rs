@@ -4,11 +4,13 @@ use crate::bytecode::compile_cfg_to_bytecode;
 use crate::parsing::AbstractSyntaxTree;
 
 pub mod bytecode;
-mod codegen;
 pub mod errors;
 pub mod ir;
-mod optimize;
 pub mod parsing;
+
+mod asm;
+mod codegen;
+mod optimize;
 
 pub use crate::bytecode::Bytecode;
 pub use crate::errors::CompilationError;
