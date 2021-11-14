@@ -8,10 +8,9 @@ use crate::ir::ThreeAddressInstruction;
 // REGISTERS:
 //
 // x0                 - working byte
-const VAL32: W = W(0);
+const VAL: W = W(0);
 // x19 (callee saved) - pointer to arena (during function)
 const ADDR: X = X(19);
-const ADDR32: W = W(19);
 // x20 (callee saved) - getchar (during function)
 const GETCHAR: X = X(20);
 // x21 (callee saved) - getchar (during function)
@@ -101,6 +100,11 @@ impl AArch64Assembly {
         self.emit(0);
     }
 
+    pub fn add64(&mut self, xd: X, xn: X, imm: u16) {
+        asm!("add {}, {}, {}", xd, xn, imm);
+        self.emit(0);
+    }
+
     // branch and line from register
     pub fn blr(&mut self, rd: X) {
         asm!("blr {}", rd);
@@ -164,6 +168,11 @@ impl AArch64Assembly {
         self.emit(0);
     }
 
+    pub fn sub64(&mut self, xd: X, xn: X, imm: u16) {
+        asm!("sub {}, {}, #{}", xd, xn, imm);
+        self.emit(0);
+    }
+
     /// Move (register)
     /// https://developer.arm.com/documentation/100069/0609/A64-General-Instructions/MOV--register-
     pub fn mov(&mut self, rd: X, op2: X) {
@@ -209,6 +218,10 @@ impl CodeGenerator {
     }
 
     pub fn generate(&mut self, cfg: &ControlFlowGraph) {
+        asm!(".globl _bf_program");
+        asm!(".p2align 2");
+        println!("_bf_program:");
+
         // function intro
         self.setup_stack();
         self.save_registers();
@@ -247,6 +260,13 @@ impl CodeGenerator {
         //  str	x19, [sp, 0x30]
         self.asm.stp_offset(PUTCHAR, GETCHAR, SP, 0x20);
         self.asm.str_imm(ADDR, SP, 0x30);
+
+        // mov x19, x0
+        // mov x20, x1
+        // mov x21, x2
+        self.asm.mov(ADDR, X(0));
+        self.asm.mov(PUTCHAR, X(1));
+        self.asm.mov(GETCHAR, X(2));
     }
 
     fn restore_stack_and_registers_and_return(&mut self) {
@@ -279,39 +299,39 @@ impl CodeGenerator {
                     return;
                 }
                 if x >= 0 {
-                    self.asm.add(ADDR32, ADDR32, (x & 0xFFFF) as u16);
+                    self.asm.add64(ADDR, ADDR, x as u16);
                 } else {
-                    self.asm.sub(ADDR32, ADDR32, (-x) as u16);
+                    self.asm.sub64(ADDR, ADDR, (-x) as u16);
                 }
             }
             ChangeVal(x) => {
                 // x0 <- *p
-                self.asm.ldrb(VAL32, ADDR, 0);
+                self.asm.ldrb(VAL, ADDR, 0);
 
                 if (x as i8) >= 0 {
                     // x0 <- x0 + x
-                    self.asm.add(VAL32, VAL32, x as u16);
+                    self.asm.add(VAL, VAL, x as u16);
                 } else {
                     // x0 <- x0 - x
-                    self.asm.sub(VAL32, VAL32, -(x as i8) as u16);
+                    self.asm.sub(VAL, VAL, -(x as i8) as u16);
                 }
 
                 // *p = x0
-                self.asm.strb(VAL32, ADDR, 0);
+                self.asm.strb(VAL, ADDR, 0);
             }
             PutChar => {
-                self.asm.ldrb(VAL32, ADDR, 0);
+                self.asm.ldrb(VAL, ADDR, 0);
                 self.asm.blr(PUTCHAR);
             }
             GetChar => {
                 self.asm.blr(GETCHAR);
-                self.asm.strb(VAL32, ADDR, 0);
+                self.asm.strb(VAL, ADDR, 0);
             }
             BranchIfZero(BlockLabel(l)) => {
                 // ldbr     x0, [x19]
-                self.asm.ldrb(VAL32, ADDR, 0);
+                self.asm.ldrb(VAL, ADDR, 0);
                 // cbz    w0, L*
-                self.asm.cbz(VAL32, l as u16);
+                self.asm.cbz(VAL, l as u16);
             }
             BranchTo(BlockLabel(l)) => {
                 // b    L*
