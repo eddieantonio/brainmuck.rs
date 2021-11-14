@@ -42,6 +42,13 @@ impl ControlFlowGraph {
     pub fn blocks(&self) -> &[BasicBlock] {
         &self.blocks
     }
+
+    pub fn last_instruction(&self) -> Option<ThreeAddressInstruction> {
+        self.blocks()
+            .into_iter()
+            .last()
+            .and_then(|block| block.last_instruction())
+    }
 }
 
 impl BasicBlock {
@@ -55,6 +62,11 @@ impl BasicBlock {
 
     pub fn instructions(&self) -> &[ThreeAddressInstruction] {
         &self.instructions
+    }
+
+    pub fn last_instruction(&self) -> Option<ThreeAddressInstruction> {
+        let n = self.instructions.len();
+        self.instructions.get(n - 1).map(|x| *x)
     }
 
     pub fn label(&self) -> BlockLabel {
