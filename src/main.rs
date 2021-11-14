@@ -16,6 +16,7 @@ fn main() -> Result<(), CompilationError> {
     let source_text = fs::read(&args[1])?;
     let ast = brainmuck::parse(&source_text)?;
     let program = brainmuck::compile_to_bytecode(&ast);
+    brainmuck::run_native_code(&ast);
 
     interpret(&program);
     Ok(())
