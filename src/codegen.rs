@@ -42,9 +42,6 @@ pub fn run(cfg: &ControlFlowGraph) {
 
     let program = unsafe { as_function!(code, Program) };
 
-    if true {
-        return;
-    }
     let mut arena = [0u8; 4096];
     program(arena.as_mut_ptr(), putchar, getchar);
 }

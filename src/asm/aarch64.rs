@@ -324,8 +324,7 @@ impl AArch64Assembly {
         asm!("mov {0}, {1} ; orr {0}, x31, {1}", rd, rm);
         //          sf op       << N    rm   imm6    rn    rd
         let base = 0b1_01_01010_00_0_00000_000000_00000_00000;
-        //           1_01_01010_00_0_00001_000000_11111_10101
-        self.emit(base | X(31).at(16..=20) | X(31).at(5..=9) | rd.at(0..=4));
+        self.emit(base | rm.at(16..=20) | X(31).at(5..=9) | rd.at(0..=4));
     }
 
     /// Subract (immediate)

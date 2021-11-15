@@ -18,7 +18,10 @@ fn main() -> Result<(), CompilationError> {
     let program = brainmuck::compile_to_bytecode(&ast);
     brainmuck::run_native_code(&ast);
 
-    interpret(&program);
+    if args.len() > 2 {
+        interpret(&program);
+    }
+
     Ok(())
 }
 
