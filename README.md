@@ -1,6 +1,8 @@
 mmap_jit
 ========
 
+![unsafe](https://img.shields.io/badge/unsafe-100%25-blue])
+
 A repo I made to practice my knowledge of:
 
  - Rust's `Drop` trait
@@ -10,7 +12,8 @@ A repo I made to practice my knowledge of:
    call `mprotect()` with `PROT_EXEC` as a page cannot be at
    `PROT_WRITE` and `PROT_EXEC` at the same time (very sensible!).
 
-For practical purposes, use a different crate to use `mmap` Fr
+For practical purposes, use a different crate to use `mmap` memory from
+within Rust.
 
 License
 =======
