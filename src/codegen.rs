@@ -111,7 +111,7 @@ impl CodeGenerator {
         //  stp	x29, x30, [sp, #-48]!
         //  mov	x29, sp
         self.asm.stp_preindex(FP, LR, SP, -0x30);
-        self.asm.mov(FP, SP);
+        self.asm.mov_sp(FP, SP);
     }
 
     fn save_registers(&mut self) {
@@ -123,9 +123,9 @@ impl CodeGenerator {
         // mov x19, x0
         // mov x20, x1
         // mov x21, x2
-        self.asm.mov_zero(ADDR, X(0));
-        self.asm.mov_zero(PUTCHAR, X(1));
-        self.asm.mov_zero(GETCHAR, X(2));
+        self.asm.mov(ADDR, X(0));
+        self.asm.mov(PUTCHAR, X(1));
+        self.asm.mov(GETCHAR, X(2));
     }
 
     fn restore_stack_and_registers_and_return(&mut self) {

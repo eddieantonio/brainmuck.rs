@@ -215,10 +215,10 @@ impl AArch64Assembly {
         self.emit(base | Imm(12, imm as i32).at(10..=21) | xn.at(5..=9) | xd.at(0..=4));
     }
 
-    /// Move (register) -- shh! Secretly this is an add!
+    /// Move (register can be sp) -- shh! Secretly this is an add!
     /// https://developer.arm.com/documentation/100069/0609/A64-General-Instructions/MOV--register-
-    pub fn mov(&mut self, rd: X, rn: X) {
-        asm!("mov {}, {} ; add", rd, rn);
+    pub fn mov_sp(&mut self, rd: X, rn: X) {
+        asm!("mov {0}, {1} ; add {0}, {1}, 0", rd, rn);
         //
         //          sf op
         //          sfop S       <<        imm12 Rn    Rd
@@ -226,14 +226,13 @@ impl AArch64Assembly {
         self.emit(base | rn.at(5..=9) | rd.at(0..=4));
     }
 
-    /// Logical (shifted register)
-    pub fn mov_zero(&mut self, rd: X, rm: X) {
-        let rn = X(31);
-        asm!("mov {0}, {2} ; orr {0}, {1}, {2}", rd, rn, rm);
+    /// Move register (shh! this is secretly ORR)
+    pub fn mov(&mut self, rd: X, rm: X) {
+        asm!("mov {0}, {1} ; orr {0}, x31, {1}", rd, rm);
         //          sf op       << N    rm   imm6    rn    rd
         let base = 0b1_01_01010_00_0_00000_000000_00000_00000;
         //           1_01_01010_00_0_00001_000000_11111_10101
-        self.emit(base | rm.at(16..=20) | rn.at(5..=9) | rd.at(0..=4));
+        self.emit(base | X(31).at(16..=20) | X(31).at(5..=9) | rd.at(0..=4));
     }
 
     /// Subract (immediate)
@@ -297,17 +296,9 @@ impl BitPack for W {
 impl BitPack for Imm {
     fn to_u32(self) -> u32 {
         let raw_bits = self.1 as u32;
-        // mask off only the bits that matter
+        // Keep only the bits that contribute to the immediate value:
         let mask = 2u32.pow(self.expected_size() as u32) - 1;
-
-        let answer = mask & raw_bits;
-        if answer != raw_bits {
-            println!(
-                "\t; converting {0} to {1:04X} (was {0:04X})",
-                raw_bits, answer
-            );
-        }
-        answer
+        mask & raw_bits
     }
     fn expected_size(self) -> u8 {
         self.0
