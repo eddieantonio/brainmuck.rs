@@ -42,6 +42,9 @@ pub fn run(cfg: &ControlFlowGraph) {
 
     let program = unsafe { as_function!(code, Program) };
 
+    if true {
+        return;
+    }
     let mut arena = [0u8; 4096];
     program(arena.as_mut_ptr(), putchar, getchar);
 }
@@ -120,9 +123,9 @@ impl CodeGenerator {
         // mov x19, x0
         // mov x20, x1
         // mov x21, x2
-        self.asm.mov(ADDR, X(0));
-        self.asm.mov(PUTCHAR, X(1));
-        self.asm.mov(GETCHAR, X(2));
+        self.asm.mov_zero(ADDR, X(0));
+        self.asm.mov_zero(PUTCHAR, X(1));
+        self.asm.mov_zero(GETCHAR, X(2));
     }
 
     fn restore_stack_and_registers_and_return(&mut self) {

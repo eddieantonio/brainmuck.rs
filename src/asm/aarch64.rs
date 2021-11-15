@@ -21,6 +21,10 @@ pub struct W(pub u8);
 #[derive(Clone, Copy)]
 pub struct Imm(pub u8, pub i32);
 
+/// An unsigned immediate value in the instruction.
+#[derive(Clone, Copy)]
+pub struct Umm(pub u8, pub u32);
+
 /// Generates ARM AArch64 machine code.
 pub struct AArch64Assembly {
     instr: Vec<u8>,
@@ -77,52 +81,122 @@ impl AArch64Assembly {
 
     // Load and stores ////////////////////////////////////////////////////////////////////////////
 
-    /// store pair of registers
-    /// https://developer.arm.com/documentation/dui0801/h/A64-Data-Transfer-Instructions/STP
-    pub fn stp_preindex(&mut self, xt1: X, xt2: X, xn: X, imm: i16) {
-        // https://developer.arm.com/documentation/102374/0101/Loads-and-stores---addressing
-        asm!("stp {}, {}, [{}, #{}]!", xt1, xt2, xn, imm);
-    }
-
-    /// store pair of registers
-    /// https://developer.arm.com/documentation/dui0801/h/A64-Data-Transfer-Instructions/STP
-    pub fn stp_offset(&mut self, xt1: X, xt2: X, xn: X, imm: i16) {
-        // https://developer.arm.com/documentation/102374/0101/Loads-and-stores---addressing
-        asm!("stp {}, {}, [{}, #{}]", xt1, xt2, xn, imm);
-    }
-
-    pub fn ldp_postindex(&mut self, xt1: X, xt2: X, xn: X, imm: i16) {
-        asm!("ldp {}, {}, [{}], #{}", xt1, xt2, xn, imm);
-        // https://developer.arm.com/documentation/102374/0101/Loads-and-stores---addressing
-    }
-
-    pub fn ldp_offset(&mut self, xt1: X, xt2: X, xn: X, imm: i16) {
-        asm!("ldp {}, {}, [{}, #{}]", xt1, xt2, xn, imm);
-        // https://developer.arm.com/documentation/102374/0101/Loads-and-stores---addressing
-    }
-
-    /// store with immediate offset
-    /// https://developer.arm.com/documentation/dui0802/a/CIHGJHED
-    pub fn str_imm(&mut self, rt: X, rn: X, offset: i16) {
-        // https://developer.arm.com/documentation/102374/0101/Loads-and-stores---addressing
-        asm!("str {}, [{}, #{}]", rt, rn, offset);
-    }
-
-    pub fn ldr_imm(&mut self, rt: X, rn: X, offset: i16) {
-        asm!("ldr {}, [{}, #{}]", rt, rn, offset);
-    }
-
-    /// Load Register Byte (immediate)
-    pub fn ldrb(&mut self, wt: W, xn: X, pimm: u16) {
-        // https://developer.arm.com/documentation/102374/0101/Loads-and-stores---addressing
-        asm!("ldrb {}, [{}, #{}]", wt, xn, pimm);
-    }
+    // Load/store register (unsigned immediate)
 
     /// Store Register Byte (immediate)
     /// https://developer.arm.com/documentation/100076/0100/a64-instruction-set-reference/a64-data-transfer-instructions/strb--immediate-?lang=en
-    pub fn strb(&mut self, wt: W, xn: X, pimm: u16) {
+    pub fn strb(&mut self, wt: W, xn: X, offset: u16) {
         // https://developer.arm.com/documentation/102374/0101/Loads-and-stores---addressing
-        asm!("strb {}, [{}, #{}]", wt, xn, pimm);
+        asm!("strb {}, [{}, #{}]", wt, xn, offset);
+        // Offset is described in bytes, but must be 8-byte aligned (lower 3 bits are implied 0)
+        let dword_aligned_offset = (offset >> 3) as i32;
+        //         size     V   opc        imm12    rn    rt
+        let base = 0b00_111_0_01_00_000000000000_00000_00000;
+        self.emit(base | wt.at(0..=4) | xn.at(5..=9) | Imm(12, dword_aligned_offset).at(10..=21));
+    }
+
+    /// Load Register Byte (immediate)
+    pub fn ldrb(&mut self, wt: W, xn: X, offset: u16) {
+        // https://developer.arm.com/documentation/102374/0101/Loads-and-stores---addressing
+        asm!("ldrb {}, [{}, #{}]", wt, xn, offset);
+        // Offset is described in bytes, but must be 8-byte aligned (lower 3 bits are implied 0)
+        let dword_aligned_offset = (offset >> 3) as i32;
+        //         size     V   opc        imm12    rn    rt
+        let base = 0b00_111_0_01_01_000000000000_00000_00000;
+        self.emit(base | wt.at(0..=4) | xn.at(5..=9) | Imm(12, dword_aligned_offset).at(10..=21));
+    }
+
+    /// Store dword register with immediate offset
+    /// https://developer.arm.com/documentation/dui0802/a/CIHGJHED
+    pub fn str_imm(&mut self, rt: X, rn: X, offset: u16) {
+        asm!("str {}, [{}, #{}]", rt, rn, offset);
+        // Offset is described in bytes, but must be 8-byte aligned (lower 3 bits are implied 0)
+        let dword_aligned_offset = (offset >> 3) as i32;
+        //         size     V   opc        imm12    rn    rt
+        let base = 0b11_111_0_01_00_000000000000_00000_00000;
+        self.emit(base | rt.at(0..=4) | rn.at(5..=9) | Imm(12, dword_aligned_offset).at(10..=21));
+    }
+
+    /// Load dword register with unsigned immediate offset
+    pub fn ldr_imm(&mut self, rt: X, rn: X, offset: i16) {
+        asm!("ldr {}, [{}, #{}]", rt, rn, offset);
+        // Offset is described in bytes, but must be 8-byte aligned (lower 3 bits are implied 0)
+        let dword_aligned_offset = (offset >> 3) as i32;
+        //         size     V   opc        imm12    rn    rt
+        let base = 0b11_111_0_01_01_000000000000_00000_00000;
+        self.emit(base | rt.at(0..=4) | rn.at(5..=9) | Imm(12, dword_aligned_offset).at(10..=21));
+    }
+
+    // Load/store register pair (unsigned offset)
+
+    /// Store pair of registers (unsigned offset)
+    /// https://developer.arm.com/documentation/dui0801/h/A64-Data-Transfer-Instructions/STP
+    pub fn stp_offset(&mut self, rt: X, rt2: X, rn: X, imm: i16) {
+        // https://developer.arm.com/documentation/102374/0101/Loads-and-stores---addressing
+        asm!("stp {}, {}, [{}, #{}]", rt, rt2, rn, imm);
+        //          opc     V     L    imm7   rt2    rn    rt
+        let base = 0b10_101_0_010_0_0000000_00000_00000_00000;
+        // Offset is described in bytes, but must be 8-byte aligned (lower 3 bits are implied 0)
+        let dword_aligned_offset = (imm >> 3) as u32;
+        self.emit(
+            base | rt.at(0..=4)
+                | rn.at(5..=9)
+                | rt2.at(10..=14)
+                | Umm(7, dword_aligned_offset).at(15..=21),
+        );
+    }
+
+    /// Load pair of registers (unsigned offset)
+    pub fn ldp_offset(&mut self, rt: X, rt2: X, rn: X, imm: i16) {
+        asm!("ldp {}, {}, [{}, #{}]", rt, rt2, rn, imm);
+        //          opc     V     L    imm7   rt2    rn    rt
+        let base = 0b10_101_0_010_1_0000000_00000_00000_00000;
+        // Offset is described in bytes, but must be 8-byte aligned (lower 3 bits are implied 0)
+        let dword_aligned_offset = (imm >> 3) as u32;
+        self.emit(
+            base | rt.at(0..=4)
+                | rn.at(5..=9)
+                | rt2.at(10..=14)
+                | Umm(7, dword_aligned_offset).at(15..=21),
+        );
+    }
+
+    // Load/store register pair (post-index)
+    // post-index means that the dword-aligned offset will be added
+    // AFTER indexing (e.g., like *p++ in C).
+
+    /// Load pair of registers (post-index)
+    pub fn ldp_postindex(&mut self, rt1: X, rt2: X, rn: X, imm: i16) {
+        asm!("ldp {}, {}, [{}], #{}", rt1, rt2, rn, imm);
+        //          opc     V     L    imm7   rt2    rn    rt
+        let base = 0b10_101_0_001_1_0000000_00000_00000_00000;
+        // Offset is described in bytes, but must be 8-byte aligned (lower 3 bits are implied 0)
+        let dword_aligned_offset = (imm >> 3) as i32;
+        self.emit(
+            base | rt1.at(0..=4)
+                | rn.at(5..=9)
+                | rt2.at(10..=14)
+                | Imm(7, dword_aligned_offset).at(15..=21),
+        );
+    }
+
+    // Load/store register pair (pre-indexed)
+    // The dword-aligned offset index is added
+
+    /// Store Pair of registers (pre-indexed)
+    pub fn stp_preindex(&mut self, rt1: X, rt2: X, rn: X, imm: i16) {
+        // https://developer.arm.com/documentation/102374/0101/Loads-and-stores---addressing
+        asm!("stp {}, {}, [{}, #{}]!", rt1, rt2, rn, imm);
+        //          opc     V     L    imm7   rt2    rn    rt
+        let base = 0b10_101_0_011_0_0000000_00000_00000_00000;
+        // Offset is described in bytes, but must be 8-byte aligned (lower 3 bits are implied 0)
+        let dword_aligned_offset = (imm >> 3) as i32;
+        self.emit(
+            base | rt1.at(0..=4)
+                | rn.at(5..=9)
+                | rt2.at(10..=14)
+                | Imm(7, dword_aligned_offset).at(15..=21),
+        );
     }
 
     // Data processing -- immediate ///////////////////////////////////////////////////////////////
@@ -144,12 +218,22 @@ impl AArch64Assembly {
     /// Move (register) -- shh! Secretly this is an add!
     /// https://developer.arm.com/documentation/100069/0609/A64-General-Instructions/MOV--register-
     pub fn mov(&mut self, rd: X, rn: X) {
-        asm!("mov {}, {}", rd, rn);
+        asm!("mov {}, {} ; add", rd, rn);
         //
         //          sf op
         //          sfop S       <<        imm12 Rn    Rd
         let base = 0b1_0_0_10001_00_000000000000_11111_00000;
         self.emit(base | rn.at(5..=9) | rd.at(0..=4));
+    }
+
+    /// Logical (shifted register)
+    pub fn mov_zero(&mut self, rd: X, rm: X) {
+        let rn = X(31);
+        asm!("mov {0}, {2} ; orr {0}, {1}, {2}", rd, rn, rm);
+        //          sf op       << N    rm   imm6    rn    rd
+        let base = 0b1_01_01010_00_0_00000_000000_00000_00000;
+        //           1_01_01010_00_0_00001_000000_11111_10101
+        self.emit(base | rm.at(16..=20) | rn.at(5..=9) | rd.at(0..=4));
     }
 
     /// Subract (immediate)
@@ -211,6 +295,26 @@ impl BitPack for W {
 }
 
 impl BitPack for Imm {
+    fn to_u32(self) -> u32 {
+        let raw_bits = self.1 as u32;
+        // mask off only the bits that matter
+        let mask = 2u32.pow(self.expected_size() as u32) - 1;
+
+        let answer = mask & raw_bits;
+        if answer != raw_bits {
+            println!(
+                "\t; converting {0} to {1:04X} (was {0:04X})",
+                raw_bits, answer
+            );
+        }
+        answer
+    }
+    fn expected_size(self) -> u8 {
+        self.0
+    }
+}
+
+impl BitPack for Umm {
     fn to_u32(self) -> u32 {
         self.1 as u32
     }
