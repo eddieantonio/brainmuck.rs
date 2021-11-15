@@ -1,5 +1,6 @@
 //! Assembler for ARM AArch64
 
+use std::collections::HashMap;
 use std::fmt;
 
 macro_rules! asm {
@@ -25,17 +26,98 @@ pub struct Imm(pub u8, pub i32);
 #[derive(Clone, Copy)]
 pub struct Umm(pub u8, pub u32);
 
+/// A branch label in the assembly
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+pub struct Label(pub usize);
+
+#[derive(Debug, Clone, Copy)]
+pub struct WordOffset(i32);
+
+#[derive(Clone, Copy)]
+enum IncompleteInstruction {
+    CBZ,
+    B,
+}
+
 /// Generates ARM AArch64 machine code.
 pub struct AArch64Assembly {
     instr: Vec<u8>,
+    // Maps labels to the offset in the instruction vector
+    label_targets: HashMap<Label, WordOffset>,
+    //
+    unresolved_branch_targets: Vec<(WordOffset, IncompleteInstruction, Label)>,
 }
 
 impl AArch64Assembly {
     pub fn new() -> Self {
-        AArch64Assembly { instr: Vec::new() }
+        AArch64Assembly {
+            instr: Vec::new(),
+            label_targets: HashMap::new(),
+            unresolved_branch_targets: Vec::new(),
+        }
     }
 
+    /// Call this before the first instruction of the desired label
+    pub fn set_label_target(&mut self, label: Label) {
+        println!("{}:", label);
+        let offset = WordOffset::from_byte_offset(self.instr.len());
+        self.label_targets.insert(label, offset);
+    }
+
+    pub fn patch_branch_targets(&mut self) {
+        let patch_list = self.unresolved_branch_targets.clone();
+        for (source, instr, label) in patch_list {
+            let target = self
+                .label_targets
+                .get(&label)
+                .expect("should have seen label");
+            let incomplete = self.get_instruction(source);
+
+            let offset = *target - source;
+
+            let missing_bits = match instr {
+                IncompleteInstruction::CBZ => Self::patch_cbz(offset),
+                IncompleteInstruction::B => Self::patch_b(offset),
+            };
+
+            let complete = incomplete | missing_bits;
+
+            self.set_instruction(source, complete);
+            println!(
+                "; patched {:04X} to {:04X} ({})",
+                incomplete, complete, label
+            );
+        }
+
+        self.unresolved_branch_targets.clear();
+    }
+
+    fn get_instruction(&self, offset: WordOffset) -> u32 {
+        let n_bytes = offset.to_usize();
+
+        let mut word = [0u8; 4];
+        word.copy_from_slice(&self.instr[n_bytes..(n_bytes + 4)]);
+
+        u32::from_le_bytes(word)
+    }
+
+    fn set_instruction(&mut self, offset: WordOffset, instr: u32) {
+        let n_bytes = offset.to_usize();
+        let bytes = instr.to_le_bytes();
+        (&mut self.instr[n_bytes..(n_bytes + 4)]).copy_from_slice(&bytes);
+    }
+
+    /// Returns machine code.
+    /// Panics if there are unresolved branch targets.
     pub fn machine_code(&self) -> &[u8] {
+        let incomplete = self.unresolved_branch_targets.len();
+        if incomplete > 0 {
+            panic!(
+                "tried to generate binary, but there are still {} unresolved branch targets!",
+                incomplete
+            );
+        }
+
         &self.instr[..]
     }
 
@@ -47,21 +129,32 @@ impl AArch64Assembly {
     // Branch, exception generation, and system instructions //////////////////////////////////////
 
     /// Compare register and Branch if Zero
-    pub fn cbz(&mut self, rt: W, l: i32) {
-        asm!("cbz {}, L{}", rt, l);
-
+    pub fn cbz(&mut self, rt: W, label: Label) {
+        use IncompleteInstruction::CBZ;
+        asm!("cbz {}, {}", rt, label);
         //          sf ______ op              imm19    rt
         //                      23                5 4   0
         let base = 0b0_011010_0_0000000000000000000_00000;
-        self.emit(base | Imm(19, l).at(5..=23) | rt.at(0..=4));
+        self.emit_incomplete_branch(label, CBZ, base | rt.at(0..=4));
+    }
+
+    fn patch_cbz(offset: WordOffset) -> u32 {
+        let WordOffset(imm) = offset;
+        Imm(19, imm).at(5..=23)
     }
 
     /// Unconditional branch
-    pub fn b(&mut self, l: i32) {
-        asm!("b L{}", l);
+    pub fn b(&mut self, label: Label) {
+        use IncompleteInstruction::B;
+        asm!("b {}", label);
         //          op                            imm26
         let base = 0b0_00101_00000000000000000000000000;
-        self.emit(base | Imm(26, l).at(0..=25));
+        self.emit_incomplete_branch(label, B, base);
+    }
+
+    fn patch_b(offset: WordOffset) -> u32 {
+        let WordOffset(imm) = offset;
+        Imm(26, imm).at(0..=25)
     }
 
     /// Branch and Link to Register
@@ -256,7 +349,45 @@ impl AArch64Assembly {
     fn emit(&mut self, instruction: u32) {
         let arr = instruction.to_le_bytes();
         self.instr.extend_from_slice(&arr);
-        println!("\t{:04X}", instruction);
+        println!("\t; {:04X}", instruction);
+    }
+
+    fn emit_incomplete_branch(
+        &mut self,
+        label: Label,
+        which: IncompleteInstruction,
+        partial_instruction: u32,
+    ) {
+        // must calculate offset before emitting the instruction
+        let offset = WordOffset::from_byte_offset(self.instr.len());
+        println!("\t; INCOMPLETE:");
+        self.emit(partial_instruction);
+        self.unresolved_branch_targets.push((offset, which, label));
+    }
+}
+
+impl WordOffset {
+    /// Return a word offset from a byte offset
+    pub fn from_byte_offset(n_bytes: usize) -> WordOffset {
+        assert_eq!(n_bytes & 0b11, 0, "expected a 4-byte aligned offset");
+        WordOffset((n_bytes / 4) as i32)
+    }
+
+    pub fn to_usize(self) -> usize {
+        let WordOffset(words) = self;
+        assert!(words >= 0);
+
+        words as usize * 4
+    }
+}
+
+impl std::ops::Sub for WordOffset {
+    type Output = Self;
+    fn sub(self, other: WordOffset) -> Self::Output {
+        let WordOffset(a) = self;
+        let WordOffset(b) = other;
+
+        WordOffset(a - b)
     }
 }
 
@@ -327,5 +458,11 @@ impl fmt::Display for X {
         } else {
             write!(f, "x{}", self.0)
         }
+    }
+}
+
+impl fmt::Display for Label {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "L{}", self.0)
     }
 }

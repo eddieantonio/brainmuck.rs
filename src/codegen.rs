@@ -1,6 +1,6 @@
 use mmap_jit::{as_function, WritableRegion};
 
-use crate::asm::aarch64::{AArch64Assembly, W, X};
+use crate::asm::aarch64::{AArch64Assembly, Label, W, X};
 use crate::ir::BlockLabel;
 use crate::ir::ControlFlowGraph;
 use crate::ir::ThreeAddressInstruction;
@@ -139,13 +139,17 @@ impl CodeGenerator {
     }
 
     fn generate_code(&mut self, cfg: &ControlFlowGraph) {
+        // First-pass: generate instructions, but branches will be incomplete.
         for block in cfg.blocks().iter() {
             let BlockLabel(l) = block.label();
-            println!("L{}:", l);
+            self.asm.set_label_target(Label(l));
             for &instr in block.instructions().iter() {
                 self.generate_instructions(instr);
             }
         }
+
+        // Second-pass: patch all incomplete instructions
+        self.asm.patch_branch_targets();
     }
 
     fn generate_instructions(&mut self, instr: ThreeAddressInstruction) {
@@ -190,11 +194,11 @@ impl CodeGenerator {
                 // ldbr     x0, [x19]
                 self.asm.ldrb(VAL, ADDR, 0);
                 // cbz    w0, L*
-                self.asm.cbz(VAL, l as i32);
+                self.asm.cbz(VAL, Label(l));
             }
             BranchTo(BlockLabel(l)) => {
                 // b    L*
-                self.asm.b(l as i32);
+                self.asm.b(Label(l));
             }
             Terminate => {
                 self.restore_stack_and_registers_and_return();
