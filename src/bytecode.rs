@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::fmt;
+use std::io::{self, Read};
 
 use crate::ir::{ControlFlowGraph, ThreeAddressInstruction};
 
@@ -77,6 +78,62 @@ pub fn compile_cfg_to_bytecode(cfg: &ControlFlowGraph) -> Vec<Bytecode> {
     }
 
     code
+}
+
+/// Interprets the bytecode
+pub fn interpret(program: &[Bytecode], universe: &mut [u8]) {
+    use Bytecode::*;
+
+    let mut current_address = 0;
+    let mut program_counter = 0;
+
+    while program_counter < program.len() {
+        program_counter = match program[program_counter] {
+            NoOp => program_counter + 1,
+            ChangeVal(val) => {
+                universe[current_address] = val.wrapping_add(universe[current_address]);
+
+                program_counter + 1
+            }
+            ChangeAddr(incr) => {
+                let address = current_address as i32 + incr;
+
+                if address as usize >= universe.len() {
+                    panic!("Runtime error: address went beyond the end of the universe");
+                } else if address < 0 {
+                    panic!("Runtime error: address went below zero");
+                } else {
+                    current_address = address as usize;
+                }
+
+                program_counter + 1
+            }
+            PrintChar => {
+                let c = universe[current_address] as char;
+                print!("{}", c);
+
+                program_counter + 1
+            }
+            GetChar => {
+                let mut one_byte = [0u8];
+                io::stdin()
+                    .read_exact(&mut one_byte)
+                    .expect("could not read even a single byte!");
+                universe[current_address] = one_byte[0];
+
+                program_counter + 1
+            }
+            BranchIfZero(target) => {
+                if universe[current_address] == 0 {
+                    target.0
+                } else {
+                    program_counter + 1
+                }
+            }
+            BranchTo(target) => target.0,
+            Terminate => return,
+        }
+    }
 }
 
 /// Prints Bytecode in a pseudo-assembly format.

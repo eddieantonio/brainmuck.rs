@@ -1,9 +1,10 @@
 extern crate brainmuck;
 
-use brainmuck::{Bytecode, CompilationError};
+use brainmuck::CompilationError;
 use std::env;
 use std::fs;
-use std::io::{self, Read};
+
+const SIZE_OF_UNIVERSE: usize = 4096;
 
 fn main() -> Result<(), CompilationError> {
     let args: Vec<_> = env::args().collect();
@@ -16,69 +17,12 @@ fn main() -> Result<(), CompilationError> {
     let source_text = fs::read(&args[1])?;
     let ast = brainmuck::parse(&source_text)?;
     let program = brainmuck::compile_to_bytecode(&ast);
-    brainmuck::run_native_code(&ast);
-
-    if args.len() > 2 {
-        interpret(&program);
-    }
-
-    Ok(())
-}
-
-const SIZE_OF_UNIVERSE: usize = 4096;
-
-fn interpret(program: &[Bytecode]) {
-    use Bytecode::*;
 
     let mut universe = [0u8; SIZE_OF_UNIVERSE];
-    let mut current_address = 0;
-    let mut program_counter = 0;
 
-    while program_counter < program.len() {
-        program_counter = match program[program_counter] {
-            NoOp => program_counter + 1,
-            ChangeVal(val) => {
-                universe[current_address] = val.wrapping_add(universe[current_address]);
+    brainmuck::run_native_code(&ast);
 
-                program_counter + 1
-            }
-            ChangeAddr(incr) => {
-                let address = current_address as i32 + incr;
+    brainmuck::bytecode::interpret(&program, &mut universe);
 
-                if address as usize >= SIZE_OF_UNIVERSE {
-                    panic!("Runtime error: address went beyond the end of the universe");
-                } else if address < 0 {
-                    panic!("Runtime error: address went below zero");
-                } else {
-                    current_address = address as usize;
-                }
-
-                program_counter + 1
-            }
-            PrintChar => {
-                let c = universe[current_address] as char;
-                print!("{}", c);
-
-                program_counter + 1
-            }
-            GetChar => {
-                let mut one_byte = [0u8];
-                io::stdin()
-                    .read_exact(&mut one_byte)
-                    .expect("could not read even a single byte!");
-                universe[current_address] = one_byte[0];
-
-                program_counter + 1
-            }
-            BranchIfZero(target) => {
-                if universe[current_address] == 0 {
-                    target.0
-                } else {
-                    program_counter + 1
-                }
-            }
-            BranchTo(target) => target.0,
-            Terminate => return,
-        }
-    }
+    Ok(())
 }
