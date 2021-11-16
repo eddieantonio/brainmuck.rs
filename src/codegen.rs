@@ -7,15 +7,15 @@ use crate::ir::ThreeAddressInstruction;
 //
 // x0                 - working byte
 const VAL: W = W(0);
-// x19 (callee saved) - pointer to arena (during function)
+// x19 (callee saved) - current pointer on the "tape" (during function)
 const ADDR: X = X(19);
 // x20 (callee saved) - getchar (during function)
 const GETCHAR: X = X(20);
 // x21 (callee saved) - getchar (during function)
 const PUTCHAR: X = X(21);
-// x0  (argument)     - pointer to arena (as argument)
-// x1  (argument)     - putchar
-// x1  (argument)     - getchar
+// x0  (argument)     - pointer to universe (as argument)
+// x1  (argument)     - putchar (as argument)
+// x1  (argument)     - getchar (as argument)
 //
 // x29                - frame pointer
 const FP: X = X(29);
@@ -43,10 +43,13 @@ impl CodeGenerator {
         self.setup_stack_and_save_registers();
 
         self.generate_code(&cfg);
-        assert!(matches!(
-            cfg.last_instruction(),
-            Some(ThreeAddressInstruction::Terminate)
-        ));
+        assert!(
+            matches!(
+                cfg.last_instruction(),
+                Some(ThreeAddressInstruction::Terminate)
+            ),
+            "expected terminate as last instruction, so that the function returns"
+        );
 
         self.asm.machine_code()
     }
@@ -57,8 +60,8 @@ impl CodeGenerator {
     //        $sp + 0x08 [previous x21]
     //        $sp + 0x10 [previous x19]
     //        $sp + 0x18 [ ...unused  ]
-    // $fp == $sp + 0x20 [previous  fp]
-    //        $sp + 0x28 [previous  lr]
+    // $fp == $sp + 0x20 [previous  fp] | Frame record
+    //        $sp + 0x28 [previous  lr] |
 
     // REGISTERS
     //
@@ -74,8 +77,9 @@ impl CodeGenerator {
         self.asm.stp_offset(FP, LR, SP, 0x20);
         self.asm.str_imm(ADDR, SP, 0x10);
 
-        // Set up the frame pointer to point to saved frame pointer/link register
-        // ...I'm not sure why it's done like this.
+        // Let the frame pointer point to the current frame record
+        // -- this allows backtraces to work, since the frame pointer,
+        //    and all the frame records is a linked-list of stack frames
         self.asm.add64(FP, SP, 0x20);
 
         // mov x19, x0
