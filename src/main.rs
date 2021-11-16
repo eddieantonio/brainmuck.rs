@@ -14,8 +14,12 @@ fn main() -> Result<(), CompilationError> {
         return Ok(());
     }
 
-    let source_text = fs::read(&args[1])?;
-    let ast = brainmuck::parse(&source_text)?;
+    // HACK: for some bizare reason, source_text was being double free'd...
+    // Or... something ¯\_(ツ)_/¯
+    let ast = {
+        let source_text = fs::read(&args[1])?;
+        brainmuck::parse(&source_text)?
+    };
 
     let mut universe = [0u8; SIZE_OF_UNIVERSE];
     if should_use_jit(&args) {
