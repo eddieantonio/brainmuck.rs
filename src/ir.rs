@@ -1,3 +1,5 @@
+//! The internal representation of a program.
+
 use std::collections::HashMap;
 
 use crate::parsing::{AbstractSyntaxTree, ConditionalID, Statement};
@@ -15,7 +17,7 @@ pub struct BasicBlock {
     instructions: Vec<ThreeAddressInstruction>,
 }
 
-/// Why is this exact same enum as Bytecode? Because I messed up! 🙈
+/// Instructions that manipulate at most three addresses.
 #[derive(Debug, Clone, Copy)]
 pub enum ThreeAddressInstruction {
     ChangeVal(u8),
@@ -52,7 +54,7 @@ impl ControlFlowGraph {
 }
 
 impl BasicBlock {
-    /// Note: this MOVES instructions into the basic block 👍🏼
+    /// Moves instructions into the basic block 👍🏼
     pub fn new(label: BlockLabel, instructions: Vec<ThreeAddressInstruction>) -> Self {
         BasicBlock {
             block_id: label,
@@ -60,17 +62,20 @@ impl BasicBlock {
         }
     }
 
+    /// Return a borrowed view into all instructions in this block.
     pub fn instructions(&self) -> &[ThreeAddressInstruction] {
         &self.instructions
     }
 
+    /// Returns this block's label.
+    pub fn label(&self) -> BlockLabel {
+        self.block_id
+    }
+
+    /// Returns the last instruction in this block, or None if this block is empty.
     pub fn last_instruction(&self) -> Option<ThreeAddressInstruction> {
         let n = self.instructions.len();
         self.instructions.get(n - 1).map(|x| *x)
-    }
-
-    pub fn label(&self) -> BlockLabel {
-        self.block_id
     }
 
     /// Replaces a basic block with a single no-op instruction to a branch with the given target.
@@ -159,6 +164,8 @@ pub fn lower(ast: &AbstractSyntaxTree) -> ControlFlowGraph {
 impl TryFrom<Statement> for ThreeAddressInstruction {
     type Error = String;
 
+    // Converts trivial AST [Statement] into a three-address address intrcution
+    // Returns an [Err] when the conversion is non-trivial.
     fn try_from(statement: Statement) -> Result<Self, Self::Error> {
         use self::ThreeAddressInstruction as TAC;
 

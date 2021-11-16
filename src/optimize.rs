@@ -1,5 +1,8 @@
+//! Optimize a [ControlFlowGraph].
+
 use crate::ir::{BasicBlock, ControlFlowGraph, ThreeAddressInstruction};
 
+/// Perform all of the optimizations I bothered implementing.
 pub fn optimize(cfg: &ControlFlowGraph) -> ControlFlowGraph {
     let blocks = cfg
         .blocks()
@@ -10,6 +13,7 @@ pub fn optimize(cfg: &ControlFlowGraph) -> ControlFlowGraph {
     ControlFlowGraph::new(blocks)
 }
 
+/// Performs optimizations within a basic block.
 fn peephole_optimize(instructions: &[ThreeAddressInstruction]) -> Vec<ThreeAddressInstruction> {
     use ThreeAddressInstruction::*;
 
@@ -30,6 +34,7 @@ fn peephole_optimize(instructions: &[ThreeAddressInstruction]) -> Vec<ThreeAddre
     new_instructions
 }
 
+// Makes it easier to get and replace the last element of a vector.
 trait LastNonEmptyVector<T> {
     fn last(&self) -> T;
 

@@ -1,3 +1,5 @@
+//! Generates machine code for a given program.
+
 use crate::asm::aarch64::{AArch64Assembly, Label, W, X};
 use crate::ir::BlockLabel;
 use crate::ir::ControlFlowGraph;
@@ -28,6 +30,7 @@ const SP: X = X(31);
 // also useful for addressing modes:
 // https://thinkingeek.com/2016/11/13/exploring-aarch64-assembler-chapter-5/
 
+/// Takes three-address code and compiles it an executable.
 pub struct CodeGenerator {
     asm: AArch64Assembly,
 }

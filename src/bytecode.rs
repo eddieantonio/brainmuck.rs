@@ -1,3 +1,10 @@
+//! Defines and implements a "bytecode" interpreter. The more appropriate term for this is probably
+//! [threaded code], (not to be confused with multi-threaded code!).
+//!
+//! Since this is platform-independent code, it will run on any platform, unlike the JIT compiler!
+//!
+//! [threaded code]: https://en.wikipedia.org/wiki/Threaded_code
+
 use std::collections::HashMap;
 use std::fmt;
 use std::io::{self, Read};
@@ -22,7 +29,7 @@ pub enum Bytecode {
 #[derive(Debug, Clone, Copy)]
 pub struct BranchTarget(pub usize);
 
-/// Convert a ControlFlowGraph to Bytecode.
+/// Convert a [ControlFlowGraph] to [Bytecode].
 pub fn compile_cfg_to_bytecode(cfg: &ControlFlowGraph) -> Vec<Bytecode> {
     let mut branch_targets = HashMap::new();
     let mut incomplete_instructions = Vec::new();
@@ -80,7 +87,7 @@ pub fn compile_cfg_to_bytecode(cfg: &ControlFlowGraph) -> Vec<Bytecode> {
     code
 }
 
-/// Interprets the bytecode
+/// Interprets the [Bytecode] instructions.
 pub fn interpret(program: &[Bytecode], universe: &mut [u8]) {
     use Bytecode::*;
 
@@ -136,7 +143,7 @@ pub fn interpret(program: &[Bytecode], universe: &mut [u8]) {
     }
 }
 
-/// Prints Bytecode in a pseudo-assembly format.
+/// Prints [Bytecode] in a pseudo-assembly format.
 pub fn disassemble(code: &[Bytecode]) {
     for (i, instr) in code.iter().enumerate() {
         println!("{:4}: {}", i, instr);

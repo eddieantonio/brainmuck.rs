@@ -1,3 +1,5 @@
+//! "Parse" brainfuck source text.
+
 use crate::errors::CompilationError;
 
 /// A representation of Brainfuck's source code that's easier to deal with than text.
