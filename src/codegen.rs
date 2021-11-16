@@ -40,9 +40,7 @@ impl CodeGenerator {
     }
 
     pub fn compile(&mut self, cfg: &ControlFlowGraph) -> &[u8] {
-        // function intro
-        self.setup_stack();
-        self.save_registers();
+        self.setup_stack_and_save_registers();
 
         self.generate_code(&cfg);
         assert!(matches!(
@@ -55,31 +53,30 @@ impl CodeGenerator {
 
     // STACK
     //
-    // sp + 0x30 [previous x19]
-    // sp + 0x28 [ ..unused   ]
-    // sp + 0x20 [previous x20]
-    // sp + 0x18 [previous x21]
-    // sp + 0x10 [previous  fp]
-    // sp + 0x08 [previous  lr]
-    // fp -> 0
+    // $sp == $sp + 0x00 [previous x20]
+    //        $sp + 0x08 [previous x21]
+    //        $sp + 0x10 [previous x19]
+    //        $sp + 0x18 [ ...unused  ]
+    // $fp == $sp + 0x20 [previous  fp]
+    //        $sp + 0x28 [previous  lr]
+
+    // REGISTERS
     //
-    // fp <- sp
-    // x19 <- x0
-    // x20 <- x1
-    // x21 <- x2
+    // x19 <- pointer into the universe
+    // x20 <- pointer to putchar()
+    // x21 <- pointer to getchar()
 
-    fn setup_stack(&mut self) {
-        //  stp	x29, x30, [sp, #-48]!
-        //  mov	x29, sp
-        self.asm.stp_preindex(FP, LR, SP, -0x30);
-        self.asm.mov_sp(FP, SP);
-    }
+    fn setup_stack_and_save_registers(&mut self) {
+        //  stp	x20, x21, [sp, #-0x30]!
+        //  stp x29, x30, [sp, #0x20]
+        //  str	x19, [sp, 0x10]
+        self.asm.stp_preindex(PUTCHAR, GETCHAR, SP, -0x30);
+        self.asm.stp_offset(FP, LR, SP, 0x20);
+        self.asm.str_imm(ADDR, SP, 0x10);
 
-    fn save_registers(&mut self) {
-        //  stp x20, x21, [sp, 0x20]
-        //  str	x19, [sp, 0x30]
-        self.asm.stp_offset(PUTCHAR, GETCHAR, SP, 0x20);
-        self.asm.str_imm(ADDR, SP, 0x30);
+        // Set up the frame pointer to point to saved frame pointer/link register
+        // ...I'm not sure why it's done like this.
+        self.asm.add64(FP, SP, 0x20);
 
         // mov x19, x0
         // mov x20, x1
@@ -90,12 +87,12 @@ impl CodeGenerator {
     }
 
     fn restore_stack_and_registers_and_return(&mut self) {
-        // ldr x19, [sp, #0x30]
-        // ldp x20, x21 [sp, #0x20]
-        // ldp x29, x30 [sp], #0x20
-        self.asm.ldr_imm(ADDR, SP, 0x30);
-        self.asm.ldp_offset(GETCHAR, PUTCHAR, SP, 0x20);
-        self.asm.ldp_postindex(FP, LR, SP, 0x30);
+        // ldr x19, [sp, #0x10]
+        // ldp x29, x30 [sp, #0x20]
+        // ldp x20, x21 [sp], #0x30
+        self.asm.ldr_imm(ADDR, SP, 0x10);
+        self.asm.ldp_offset(FP, LR, SP, 0x20);
+        self.asm.ldp_postindex(PUTCHAR, GETCHAR, SP, 0x30);
         self.asm.ret();
     }
 
