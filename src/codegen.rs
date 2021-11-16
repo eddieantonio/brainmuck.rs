@@ -40,10 +40,6 @@ impl CodeGenerator {
     }
 
     pub fn compile(&mut self, cfg: &ControlFlowGraph) -> &[u8] {
-        println!("\t.globl _bf_program");
-        println!("\t.p2align 2");
-        println!("_bf_program:");
-
         // function intro
         self.setup_stack();
         self.save_registers();

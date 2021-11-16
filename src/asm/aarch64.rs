@@ -3,11 +3,9 @@
 use std::collections::HashMap;
 use std::fmt;
 
+// This is used for debug prints, but I deleted them :3
 macro_rules! asm {
-    ($($fmt: expr),+) => {{
-        print!("\t");
-        println!($($fmt),+);
-    }};
+    ($($fmt: expr),+) => {{}};
 }
 
 /// Reference to 64-bit register
@@ -59,7 +57,6 @@ impl AArch64Assembly {
 
     /// Call this before the first instruction of the desired label
     pub fn set_label_target(&mut self, label: Label) {
-        println!("{}:", label);
         let offset = WordOffset::from_byte_offset(self.instr.len());
         self.label_targets.insert(label, offset);
     }
@@ -83,10 +80,6 @@ impl AArch64Assembly {
             let complete = incomplete | missing_bits;
 
             self.set_instruction(source, complete);
-            println!(
-                "; patched {:04X} to {:04X} ({})",
-                incomplete, complete, label
-            );
         }
 
         self.unresolved_branch_targets.clear();
@@ -348,7 +341,6 @@ impl AArch64Assembly {
     fn emit(&mut self, instruction: u32) {
         let arr = instruction.to_le_bytes();
         self.instr.extend_from_slice(&arr);
-        println!("\t; {:04X}", instruction);
     }
 
     fn emit_incomplete_branch(
@@ -359,7 +351,6 @@ impl AArch64Assembly {
     ) {
         // must calculate offset before emitting the instruction
         let offset = WordOffset::from_byte_offset(self.instr.len());
-        println!("\t; INCOMPLETE:");
         self.emit(partial_instruction);
         self.unresolved_branch_targets.push((offset, which, label));
     }
