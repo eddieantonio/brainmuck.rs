@@ -301,17 +301,6 @@ impl AArch64Assembly {
         self.emit(base | Imm(12, imm as i32).at(10..=21) | xn.at(5..=9) | xd.at(0..=4));
     }
 
-    /// Move (register can be sp) -- shh! Secretly this is an add!
-    /// https://developer.arm.com/documentation/100069/0609/A64-General-Instructions/MOV--register-
-    pub fn mov_sp(&mut self, rd: X, rn: X) {
-        asm!("mov {0}, {1} ; add {0}, {1}, 0", rd, rn);
-        //
-        //          sf op
-        //          sfop S       <<        imm12 Rn    Rd
-        let base = 0b1_0_0_10001_00_000000000000_11111_00000;
-        self.emit(base | rn.at(5..=9) | rd.at(0..=4));
-    }
-
     /// Move register (shh! this is secretly ORR)
     pub fn mov(&mut self, rd: X, rm: X) {
         asm!("mov {0}, {1} ; orr {0}, x31, {1}", rd, rm);
