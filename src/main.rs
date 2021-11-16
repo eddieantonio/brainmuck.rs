@@ -9,20 +9,26 @@ const SIZE_OF_UNIVERSE: usize = 4096;
 fn main() -> Result<(), CompilationError> {
     let args: Vec<_> = env::args().collect();
 
-    if args.len() != 2 {
-        println!("usage error: need exactly one argument");
+    if args.len() < 2 {
+        println!("brainmuck: you need to provide a program");
         return Ok(());
     }
 
     let source_text = fs::read(&args[1])?;
     let ast = brainmuck::parse(&source_text)?;
-    let program = brainmuck::compile_to_bytecode(&ast);
 
     let mut universe = [0u8; SIZE_OF_UNIVERSE];
-
-    brainmuck::run_native_code(&ast);
-
-    brainmuck::bytecode::interpret(&program, &mut universe);
+    if should_use_jit(&args) {
+        let program = brainmuck::jit_compile(&ast);
+        program.run(&mut universe);
+    } else {
+        let program = brainmuck::compile_to_bytecode(&ast);
+        brainmuck::bytecode::interpret(&program, &mut universe);
+    }
 
     Ok(())
+}
+
+fn should_use_jit(args: &[String]) -> bool {
+    !args[1..].iter().find(|&arg| arg == "--no-jit").is_some()
 }

@@ -1,6 +1,8 @@
 extern crate mmap_jit;
 
 use crate::bytecode::compile_cfg_to_bytecode;
+use crate::codegen::CodeGenerator;
+use crate::jit::CompiledProgram;
 use crate::parsing::AbstractSyntaxTree;
 
 pub mod bytecode;
@@ -10,6 +12,7 @@ pub mod parsing;
 
 mod asm;
 mod codegen;
+mod jit;
 mod optimize;
 
 pub use crate::bytecode::Bytecode;
@@ -24,9 +27,13 @@ pub fn compile_to_bytecode(ast: &AbstractSyntaxTree) -> Vec<Bytecode> {
     compile_cfg_to_bytecode(&cfg_opt)
 }
 
-pub fn run_native_code(ast: &AbstractSyntaxTree) {
+/// Compile the AST to native code, injected into the current process's memory.
+pub fn jit_compile(ast: &AbstractSyntaxTree) -> CompiledProgram {
     let cfg = ir::lower(&ast);
-    let cfg_opt = optimize::optimize(&cfg);
+    let optimized_cfg = optimize::optimize(&cfg);
 
-    codegen::run(&cfg_opt);
+    let mut gen = CodeGenerator::new();
+    let code = gen.compile(&optimized_cfg);
+
+    CompiledProgram::from_binary(&code)
 }

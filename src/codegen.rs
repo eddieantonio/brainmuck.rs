@@ -1,5 +1,3 @@
-use mmap_jit::{as_function, WritableRegion};
-
 use crate::asm::aarch64::{AArch64Assembly, Label, W, X};
 use crate::ir::BlockLabel;
 use crate::ir::ControlFlowGraph;
@@ -30,48 +28,18 @@ const SP: X = X(31);
 // also useful for addressing modes:
 // https://thinkingeek.com/2016/11/13/exploring-aarch64-assembler-chapter-5/
 
-type Program = fn(*mut u8, fn(u32) -> u32, fn() -> u32) -> u64;
-
-pub fn run(cfg: &ControlFlowGraph) {
-    let mut code = CodeGenerator::new();
-    let binary = code.assemble(&cfg);
-
-    let mut mem = WritableRegion::allocate(binary.len()).unwrap();
-    (&mut mem[0..binary.len()]).copy_from_slice(&binary);
-    let code = mem.into_executable().unwrap();
-
-    let program = unsafe { as_function!(code, Program) };
-
-    let mut arena = [0u8; 4096];
-    program(arena.as_mut_ptr(), putchar, getchar);
-}
-
-fn getchar() -> u32 {
-    use std::io::{self, Read};
-    let mut one_byte = [0u8];
-    io::stdin()
-        .read_exact(&mut one_byte)
-        .expect("could not read even a single byte!");
-    one_byte[0] as u32
-}
-
-fn putchar(c: u32) -> u32 {
-    print!("{}", (c & 0xFF) as u8 as char);
-    1
-}
-
-struct CodeGenerator {
+pub struct CodeGenerator {
     asm: AArch64Assembly,
 }
 
 impl CodeGenerator {
-    fn new() -> Self {
+    pub fn new() -> Self {
         CodeGenerator {
             asm: AArch64Assembly::new(),
         }
     }
 
-    pub fn assemble(&mut self, cfg: &ControlFlowGraph) -> &[u8] {
+    pub fn compile(&mut self, cfg: &ControlFlowGraph) -> &[u8] {
         println!("\t.globl _bf_program");
         println!("\t.p2align 2");
         println!("_bf_program:");
