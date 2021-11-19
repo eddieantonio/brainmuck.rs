@@ -1,0 +1,18 @@
+on: [push]
+
+name: CI
+
+jobs:
+  build_and_test:
+    name: Rust Project
+    runs-on: macos-11
+    steps:
+      - uses: actions/checkout@v2
+      - name: 🦀 Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - name: 🔬 cargo test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
