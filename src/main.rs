@@ -1,8 +1,10 @@
-use brainmuck::{run, Opt};
-use brainmuck_core::CompilationError;
+use std::error::Error;
+
 use structopt::StructOpt;
 
-fn main() -> Result<(), CompilationError> {
+use brainmuck::{run, Opt};
+
+fn main() -> Result<(), Box<dyn Error>> {
     let opt = Opt::from_args();
 
     run(opt)

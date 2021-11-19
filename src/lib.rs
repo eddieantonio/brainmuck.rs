@@ -1,15 +1,17 @@
 extern crate brainmuck_core;
 extern crate structopt;
 
-use brainmuck_core::{BrainmuckProgram, CompilationError};
+use std::error::Error;
 use std::fs;
 use std::path::PathBuf;
 use structopt::StructOpt;
 
+use brainmuck_core::BrainmuckProgram;
+
 const SIZE_OF_UNIVERSE: usize = 4096;
 
 /// Run the program
-pub fn run(opt: Opt) -> Result<(), CompilationError> {
+pub fn run(opt: Opt) -> Result<(), Box<dyn Error>> {
     let program = compile_program(&opt)?;
 
     let mut universe = [0u8; SIZE_OF_UNIVERSE];
@@ -18,7 +20,7 @@ pub fn run(opt: Opt) -> Result<(), CompilationError> {
     Ok(())
 }
 
-fn compile_program(opt: &Opt) -> Result<Box<dyn BrainmuckProgram>, CompilationError> {
+fn compile_program(opt: &Opt) -> Result<Box<dyn BrainmuckProgram>, Box<dyn Error>> {
     let source_text = fs::read(&opt.program)?;
     let ast = brainmuck_core::parse(&source_text)?;
 
