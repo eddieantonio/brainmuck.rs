@@ -1,11 +1,14 @@
-use std::error::Error;
+use std::process;
 
 use structopt::StructOpt;
 
 use brainmuck::{run, Opt};
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() {
     let opt = Opt::from_args();
 
-    run(opt)
+    if let Err(err) = run(opt) {
+        eprintln!("{}", err);
+        process::exit(1);
+    }
 }

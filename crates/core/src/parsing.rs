@@ -1,6 +1,6 @@
 //! "Parse" brainfuck source text.
 
-use crate::errors::CompilationError;
+use crate::errors::{CompilationError, Reason};
 
 /// A representation of Brainfuck's source code that's easier to deal with than text.
 /// ...at least, that would be the case in most programming languages.
@@ -46,7 +46,9 @@ pub fn parse(source_text: &[u8]) -> Result<AbstractSyntaxTree, CompilationError>
             b']' => match labels.pop() {
                 Some(branch) => Some(EndConditional(branch)),
                 None => {
-                    return Err(CompilationError::TooManyCloseBrackets);
+                    return Err(CompilationError::without_location(
+                        Reason::TooManyCloseBrackets,
+                    ));
                 }
             },
             _ => None,
