@@ -30,10 +30,12 @@ mod asm;
 mod codegen;
 mod jit;
 mod optimize;
+mod program;
 
 pub use crate::bytecode::Bytecode;
 pub use crate::errors::CompilationError;
 pub use crate::parsing::parse;
+pub use crate::program::BrainmuckProgram;
 
 /// Compile the AST down to bytecode, that can then be interpreted.
 pub fn compile_to_bytecode(ast: &AbstractSyntaxTree) -> Vec<Bytecode> {

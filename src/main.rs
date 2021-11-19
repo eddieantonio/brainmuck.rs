@@ -1,6 +1,6 @@
 extern crate brainmuck_core;
 
-use brainmuck_core::CompilationError;
+use brainmuck_core::{BrainmuckProgram, CompilationError};
 use std::env;
 use std::fs;
 
