@@ -5,6 +5,8 @@
 //! The intent is to allocate memory in order to inject machine code into the running executable
 //! and run it. This allows you to create, among other things, a JIT compiler.
 //!
+//! # Examples
+//!
 //! Here is the general workflow:
 //!
 //! ```
@@ -46,13 +48,20 @@ pub use crate::error::{MappingError, Result};
 
 /// Cast an [ExecutableRegion] to a function pointer of your choosing.
 ///
-/// Usage:
+/// # Examples
+///
 /// ```
 /// use mmap_jit::{self, as_function, ExecutableRegion};
 /// let e: ExecutableRegion = mmap_jit::examples::generate_square_program();
 /// let f = unsafe { as_function!(e, fn(u64) -> u64) };
 /// assert_eq!(16, f(4));
 /// ```
+///
+/// # Saftey
+///
+/// This is incredibly `unsafe`! You are responsible for writing a program that obeys the target
+/// platform's ABI and additionally, does not invalidate any of Rust's assumptions about the state
+/// of memory. The power is in your hands.
 #[macro_export]
 macro_rules! as_function {
     ($region: expr, $fn_type: ty) => {

@@ -3,6 +3,12 @@
 
 use crate::{ExecutableRegion, WritableRegion};
 
+/// Writes a program equivilent to `fn(x: u32) -> u32 { x * x}` to the given buffer.
+///
+/// # Panics
+///
+/// If the target architecture is not supported. Currently, only `x86_64` and `aarch64` are
+/// supported.
 pub fn write_square_function(buffer: &mut [u8]) {
     let instructions = if cfg!(target_arch = "x86_64") {
         [
@@ -28,6 +34,7 @@ pub fn write_square_function(buffer: &mut [u8]) {
     (&mut buffer[0..n]).copy_from_slice(&instructions);
 }
 
+/// Returns an [ExecutableRegion] with the program created by [write_square_function].
 pub fn generate_square_program() -> ExecutableRegion {
     let mut mem = WritableRegion::allocate(4096).unwrap();
     write_square_function(&mut mem[..]);
