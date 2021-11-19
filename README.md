@@ -1,7 +1,7 @@
 brainmuck.rs
 ============
 
-A "optimizing" Brainfuck "jit" compiler for Apple Silicon (AArch64).
+A "optimizing" Brainfuck "JIT" compiler for Apple Silicon (AArch64).
 
 Why?
 ----
@@ -18,10 +18,12 @@ Usage
 -----
 
     brainmuck [--no-jit] PROGRAM-NAME
+    brainmuck --help
+    brainmuck --version
 
 ### Options
 
- - `--no-jit`  uses an interpreter instead of compiling the code.
+ - `--no-jit`  uses an interpreter instead of compiling the program to machine code
 
 License
 -------
