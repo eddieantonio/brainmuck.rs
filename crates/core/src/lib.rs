@@ -33,7 +33,6 @@ mod jit;
 mod optimize;
 mod program;
 
-pub use crate::bytecode::Bytecode;
 pub use crate::errors::CompilationError;
 pub use crate::parsing::parse;
 pub use crate::program::BrainmuckProgram;
