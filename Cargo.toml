@@ -1,5 +1,7 @@
 [package]
 name = "brainmuck"
+authors = ["Eddie Antonio Santos <hello@eddieantonio.ca>"]
+description = "optimizing Brainfuck JIT interpreter"
 version = "0.1.0"
 edition = "2021"
 
@@ -11,3 +13,4 @@ members = [
 
 [dependencies]
 brainmuck_core = { path = "crates/core" }
+structopt = "0.3.25"
