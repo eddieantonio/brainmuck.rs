@@ -20,7 +20,7 @@ fn main() -> Result<(), CompilationError> {
     let mut universe = [0u8; SIZE_OF_UNIVERSE];
 
     let program: Box<dyn BrainmuckProgram> = if should_use_jit(&args) {
-        Box::new(brainmuck_core::jit_compile(&ast))
+        Box::new(brainmuck_core::compile_to_native_code(&ast))
     } else {
         Box::new(brainmuck_core::compile_to_bytecode(&ast))
     };

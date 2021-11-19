@@ -18,6 +18,7 @@ extern crate mmap_jit;
 
 use crate::bytecode::InterpretedProgram;
 use crate::codegen::CodeGenerator;
+use crate::ir::ControlFlowGraph;
 use crate::jit::CompiledProgram;
 use crate::parsing::AbstractSyntaxTree;
 
@@ -39,19 +40,19 @@ pub use crate::program::BrainmuckProgram;
 
 /// Compile the AST down to bytecode, that can then be interpreted.
 pub fn compile_to_bytecode(ast: &AbstractSyntaxTree) -> InterpretedProgram {
-    let cfg = ir::lower(&ast);
-    let cfg_opt = optimize::optimize(&cfg);
-
-    InterpretedProgram::new(&cfg_opt)
+    InterpretedProgram::new(&ast_to_optimized_cfg(ast))
 }
 
 /// Compile the AST to native code, injected into the current process's image.
-pub fn jit_compile(ast: &AbstractSyntaxTree) -> CompiledProgram {
-    let cfg = ir::lower(&ast);
-    let optimized_cfg = optimize::optimize(&cfg);
-
+pub fn compile_to_native_code(ast: &AbstractSyntaxTree) -> CompiledProgram {
     let mut gen = CodeGenerator::new();
-    let code = gen.compile(&optimized_cfg);
+    let code = gen.compile(&ast_to_optimized_cfg(ast));
 
     CompiledProgram::from_binary(&code)
+}
+
+/// Go from [AbstractSyntaxTree] straight to [ControlFlowGraph], with optimizations
+fn ast_to_optimized_cfg(ast: &AbstractSyntaxTree) -> ControlFlowGraph {
+    let initial_cfg = ir::lower(&ast);
+    optimize::optimize(&initial_cfg)
 }
