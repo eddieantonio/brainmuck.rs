@@ -11,6 +11,10 @@ const SIZE_OF_UNIVERSE: usize = 4096;
 fn main() -> Result<(), CompilationError> {
     let opt = Opt::from_args();
 
+    run(opt)
+}
+
+fn run(opt: Opt) -> Result<(), CompilationError> {
     let source_text = fs::read(&opt.program)?;
     let ast = brainmuck_core::parse(&source_text)?;
 
