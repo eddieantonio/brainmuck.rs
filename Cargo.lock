@@ -6,6 +6,13 @@ version = 3
 name = "brainmuck"
 version = "0.1.0"
 dependencies = [
+ "brainmuck_core",
+]
+
+[[package]]
+name = "brainmuck_core"
+version = "0.1.0"
+dependencies = [
  "mmap_jit",
 ]
 

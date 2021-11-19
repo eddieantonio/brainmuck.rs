@@ -1,6 +1,6 @@
-extern crate brainmuck;
+extern crate brainmuck_core;
 
-use brainmuck::CompilationError;
+use brainmuck_core::CompilationError;
 use std::env;
 use std::fs;
 
@@ -15,15 +15,15 @@ fn main() -> Result<(), CompilationError> {
     }
 
     let source_text = fs::read(&args[1])?;
-    let ast = brainmuck::parse(&source_text)?;
+    let ast = brainmuck_core::parse(&source_text)?;
 
     let mut universe = [0u8; SIZE_OF_UNIVERSE];
     if should_use_jit(&args) {
-        let program = brainmuck::jit_compile(&ast);
+        let program = brainmuck_core::jit_compile(&ast);
         program.run(&mut universe);
     } else {
-        let program = brainmuck::compile_to_bytecode(&ast);
-        brainmuck::bytecode::interpret(&program, &mut universe);
+        let program = brainmuck_core::compile_to_bytecode(&ast);
+        brainmuck_core::bytecode::interpret(&program, &mut universe);
     }
 
     Ok(())
