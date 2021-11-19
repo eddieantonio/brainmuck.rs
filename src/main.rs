@@ -18,13 +18,14 @@ fn main() -> Result<(), CompilationError> {
     let ast = brainmuck_core::parse(&source_text)?;
 
     let mut universe = [0u8; SIZE_OF_UNIVERSE];
-    if should_use_jit(&args) {
-        let program = brainmuck_core::jit_compile(&ast);
-        program.run(&mut universe);
+
+    let program: Box<dyn BrainmuckProgram> = if should_use_jit(&args) {
+        Box::new(brainmuck_core::jit_compile(&ast))
     } else {
-        let program = brainmuck_core::compile_to_bytecode(&ast);
-        brainmuck_core::bytecode::interpret(&program, &mut universe);
-    }
+        Box::new(brainmuck_core::compile_to_bytecode(&ast))
+    };
+
+    program.run(&mut universe);
 
     Ok(())
 }

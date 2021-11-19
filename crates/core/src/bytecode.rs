@@ -7,9 +7,73 @@
 
 use std::collections::HashMap;
 use std::fmt;
-use std::io::{self, Read};
 
 use crate::ir::{ControlFlowGraph, ThreeAddressInstruction};
+use crate::program::{BrainmuckProgram, GetChar, PutChar};
+
+/// A [BrainmuckProgram] that is dynamically interpreted from "[Bytecode]"
+pub struct InterpretedProgram {
+    bytecode: Vec<Bytecode>,
+}
+
+impl InterpretedProgram {
+    pub fn new(cfg: &ControlFlowGraph) -> Self {
+        let bytecode = compile_cfg_to_bytecode(cfg);
+        InterpretedProgram { bytecode }
+    }
+}
+
+impl BrainmuckProgram for InterpretedProgram {
+    fn run_with_custom_io(&self, universe: &mut [u8], putchar: PutChar, getchar: GetChar) {
+        use Bytecode::*;
+
+        let mut current_address = 0;
+        let mut program_counter = 0;
+
+        while program_counter < self.bytecode.len() {
+            program_counter = match self.bytecode[program_counter] {
+                NoOp => program_counter + 1,
+                ChangeVal(val) => {
+                    universe[current_address] = val.wrapping_add(universe[current_address]);
+
+                    program_counter + 1
+                }
+                ChangeAddr(incr) => {
+                    let address = current_address as i32 + incr;
+
+                    if address as usize >= universe.len() {
+                        panic!("Runtime error: address went beyond the end of the universe");
+                    } else if address < 0 {
+                        panic!("Runtime error: address went below zero");
+                    } else {
+                        current_address = address as usize;
+                    }
+
+                    program_counter + 1
+                }
+                PrintChar => {
+                    putchar(universe[current_address] as u32);
+
+                    program_counter + 1
+                }
+                GetChar => {
+                    universe[current_address] = getchar() as u8;
+
+                    program_counter + 1
+                }
+                BranchIfZero(target) => {
+                    if universe[current_address] == 0 {
+                        target.0
+                    } else {
+                        program_counter + 1
+                    }
+                }
+                BranchTo(target) => target.0,
+                Terminate => return,
+            }
+        }
+    }
+}
 
 /// "Bytecode" is a misnomer, but it's the best idea for what this is. It's pseudo-assembly and one
 /// can write an intrepretter for it pretty easily 👀
@@ -30,7 +94,7 @@ pub enum Bytecode {
 pub struct BranchTarget(pub usize);
 
 /// Convert a [ControlFlowGraph] to [Bytecode].
-pub fn compile_cfg_to_bytecode(cfg: &ControlFlowGraph) -> Vec<Bytecode> {
+fn compile_cfg_to_bytecode(cfg: &ControlFlowGraph) -> Vec<Bytecode> {
     let mut branch_targets = HashMap::new();
     let mut incomplete_instructions = Vec::new();
     let mut code = Vec::new();
@@ -85,62 +149,6 @@ pub fn compile_cfg_to_bytecode(cfg: &ControlFlowGraph) -> Vec<Bytecode> {
     }
 
     code
-}
-
-/// Interprets the [Bytecode] instructions.
-pub fn interpret(program: &[Bytecode], universe: &mut [u8]) {
-    use Bytecode::*;
-
-    let mut current_address = 0;
-    let mut program_counter = 0;
-
-    while program_counter < program.len() {
-        program_counter = match program[program_counter] {
-            NoOp => program_counter + 1,
-            ChangeVal(val) => {
-                universe[current_address] = val.wrapping_add(universe[current_address]);
-
-                program_counter + 1
-            }
-            ChangeAddr(incr) => {
-                let address = current_address as i32 + incr;
-
-                if address as usize >= universe.len() {
-                    panic!("Runtime error: address went beyond the end of the universe");
-                } else if address < 0 {
-                    panic!("Runtime error: address went below zero");
-                } else {
-                    current_address = address as usize;
-                }
-
-                program_counter + 1
-            }
-            PrintChar => {
-                let c = universe[current_address] as char;
-                print!("{}", c);
-
-                program_counter + 1
-            }
-            GetChar => {
-                let mut one_byte = [0u8];
-                io::stdin()
-                    .read_exact(&mut one_byte)
-                    .expect("could not read even a single byte!");
-                universe[current_address] = one_byte[0];
-
-                program_counter + 1
-            }
-            BranchIfZero(target) => {
-                if universe[current_address] == 0 {
-                    target.0
-                } else {
-                    program_counter + 1
-                }
-            }
-            BranchTo(target) => target.0,
-            Terminate => return,
-        }
-    }
 }
 
 /// Prints [Bytecode] in a pseudo-assembly format.

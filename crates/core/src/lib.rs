@@ -16,7 +16,7 @@
 
 extern crate mmap_jit;
 
-use crate::bytecode::compile_cfg_to_bytecode;
+use crate::bytecode::InterpretedProgram;
 use crate::codegen::CodeGenerator;
 use crate::jit::CompiledProgram;
 use crate::parsing::AbstractSyntaxTree;
@@ -38,11 +38,11 @@ pub use crate::parsing::parse;
 pub use crate::program::BrainmuckProgram;
 
 /// Compile the AST down to bytecode, that can then be interpreted.
-pub fn compile_to_bytecode(ast: &AbstractSyntaxTree) -> Vec<Bytecode> {
+pub fn compile_to_bytecode(ast: &AbstractSyntaxTree) -> InterpretedProgram {
     let cfg = ir::lower(&ast);
     let cfg_opt = optimize::optimize(&cfg);
 
-    compile_cfg_to_bytecode(&cfg_opt)
+    InterpretedProgram::new(&cfg_opt)
 }
 
 /// Compile the AST to native code, injected into the current process's image.
