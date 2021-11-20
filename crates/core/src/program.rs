@@ -1,15 +1,15 @@
 //! Defines [BrainmuckProgram] that allows you to run a program, regardless of how it's
 //! implemented.
 
-/// Has the same signature as [libc]'s `putchar(3)`.
+/// Has the same signature as `libc`'s `putchar(3)`.
 pub type PutChar = fn(u32) -> u32;
-/// Has the same signature as [libc]'s `getchar(3)`.
+/// Has the same signature as `libc`'s `getchar(3)`.
 pub type GetChar = fn() -> u32;
 
 /// A [BrainmuckProgram] is ready to be executed. Just give it some memory!
 pub trait BrainmuckProgram {
     /// Run the program with a universe (array of bytes), and a set of IO routines of your
-    /// choosing. They must be compatiable with [libc]'s idea of IO.
+    /// choosing. They must be compatiable with `libc`'s idea of IO.
     fn run_with_custom_io(&self, universe: &mut [u8], putchar: PutChar, getchar: GetChar);
 
     /// Runs the program with the default IO (prints to `stdout`; accepts input from `stdin`)

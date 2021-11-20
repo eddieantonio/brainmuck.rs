@@ -10,7 +10,7 @@
 //!  - source code is parsed into an [AbstractSyntaxTree] (AST)
 //!  - the AST is _lowered_ into an **i**nternal **r**epresentation, the [ir::ControlFlowGraph] (CFG)
 //!  - the control flow graph is usually the form that's easiest to perform optimizations.
-//!  - the optimized CFG can then be compiled into either: [Bytecode], which is then _interpreted_
+//!  - the optimized CFG can then be compiled into either: Bytecode, which is then _interpreted_
 //!    or; it's machine code, which is injected into the currently running process and run
 //!    directly.
 
