@@ -1,6 +1,6 @@
 //! "Parse" brainfuck source text.
 
-use crate::errors::{CompilationError, Reason};
+use crate::errors::{CompilationError, Location, Reason};
 
 /// A representation of Brainfuck's source code that's easier to deal with than text.
 /// ...at least, that would be the case in most programming languages.
@@ -28,11 +28,12 @@ pub struct ConditionalID(u32);
 // public functions
 
 /// Parses source text (really, just a bunch of bytes) into a list of statements.
-pub fn parse(source_text: &[u8]) -> Result<AbstractSyntaxTree, CompilationError> {
+pub fn parse(filename: &str, source_text: &[u8]) -> Result<AbstractSyntaxTree, CompilationError> {
     use Statement::*;
 
     let mut statements: Vec<_> = Vec::new();
     let mut labels = ConditionalStack::new();
+    let mut location = LocationTracker::new(filename);
 
     for byte in source_text {
         statements.push(match byte {
@@ -46,11 +47,13 @@ pub fn parse(source_text: &[u8]) -> Result<AbstractSyntaxTree, CompilationError>
             b']' => match labels.pop() {
                 Some(branch) => Some(EndConditional(branch)),
                 None => {
-                    return Err(CompilationError::without_location(
-                        Reason::TooManyCloseBrackets,
-                    ));
+                    return Err(location.into_error(Reason::TooManyCloseBrackets));
                 }
             },
+            b'\n' => {
+                location.increment_line_number();
+                None
+            }
             _ => None,
         })
     }
@@ -92,5 +95,30 @@ impl ConditionalStack {
 
     pub fn pop(&mut self) -> Option<ConditionalID> {
         self.stack.pop()
+    }
+}
+
+struct LocationTracker {
+    line_number: u32,
+    filename: String,
+}
+
+impl LocationTracker {
+    fn new(filename: &str) -> Self {
+        let filename = filename.to_string();
+        let line_number = 1;
+
+        LocationTracker {
+            filename,
+            line_number,
+        }
+    }
+
+    fn increment_line_number(&mut self) {
+        self.line_number += 1;
+    }
+
+    fn into_error(self, reason: Reason) -> CompilationError {
+        CompilationError::new(reason, Location::new(self.filename, self.line_number))
     }
 }

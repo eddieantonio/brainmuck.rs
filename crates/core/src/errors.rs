@@ -21,11 +21,22 @@ pub enum Reason {
 }
 
 impl CompilationError {
+    pub fn new(reason: Reason, location: Location) -> Self {
+        CompilationError {
+            reason,
+            location: Some(location),
+        }
+    }
+
     pub fn without_location(reason: Reason) -> Self {
         CompilationError {
             reason,
             location: None,
         }
+    }
+
+    pub fn location(&self) -> Option<&Location> {
+        self.location.as_ref()
     }
 
     pub fn message(&self) -> &'static str {
@@ -57,15 +68,34 @@ impl Reason {
     }
 }
 
+impl Location {
+    pub fn new(filename: String, line_no: u32) -> Self {
+        Location { filename, line_no }
+    }
+}
+
 impl std::error::Error for CompilationError {}
 
 impl fmt::Display for CompilationError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let location = self
+            .location
+            .as_ref()
+            .map(|l| format!("{}:", l))
+            .unwrap_or_else(|| String::from(""));
+
         write!(
             f,
-            "error[{:04x}]: {}",
+            "error[{:04x}]:{} {}",
             self.message_identifier(),
+            location,
             self.message()
         )
+    }
+}
+
+impl fmt::Display for Location {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}:{}", self.filename, self.line_no)
     }
 }

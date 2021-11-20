@@ -22,13 +22,21 @@ pub fn run(opt: Opt) -> Result<(), Box<dyn Error>> {
 
 fn compile_program(opt: &Opt) -> Result<Box<dyn BrainmuckProgram>, Box<dyn Error>> {
     let source_text = fs::read(&opt.program)?;
-    let ast = brainmuck_core::parse(&source_text)?;
+    let filename = from_path(&opt.program);
+    let ast = brainmuck_core::parse(&filename, &source_text)?;
 
     if opt.should_use_jit() {
         Ok(Box::new(brainmuck_core::compile_to_native_code(&ast)))
     } else {
         Ok(Box::new(brainmuck_core::compile_to_bytecode(&ast)))
     }
+}
+
+fn from_path(path: &PathBuf) -> String {
+    path.clone()
+        .into_os_string()
+        .into_string()
+        .unwrap_or_else(|_| String::from("<unknown>"))
 }
 
 /// optizing Brainfuck JIT compiler
