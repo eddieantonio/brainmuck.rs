@@ -1,5 +1,5 @@
 use std::borrow::{Borrow, BorrowMut};
-use std::ops::{Index, IndexMut};
+use std::ops::{Deref, DerefMut, Index, IndexMut};
 use std::slice::SliceIndex;
 
 use errno::errno;
@@ -88,6 +88,19 @@ impl Borrow<[u8]> for WritableRegion {
 
 impl BorrowMut<[u8]> for WritableRegion {
     fn borrow_mut(&mut self) -> &mut [u8] {
+        &mut self[..]
+    }
+}
+
+impl Deref for WritableRegion {
+    type Target = [u8];
+    fn deref(&self) -> &Self::Target {
+        &self.region[..]
+    }
+}
+
+impl DerefMut for WritableRegion {
+    fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self[..]
     }
 }

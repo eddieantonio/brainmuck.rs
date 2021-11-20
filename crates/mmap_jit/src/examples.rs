@@ -37,7 +37,7 @@ pub fn write_square_function(buffer: &mut [u8]) {
 /// Returns an [ExecutableRegion] with the program created by [write_square_function].
 pub fn generate_square_program() -> ExecutableRegion {
     let mut mem = WritableRegion::allocate(4096).unwrap();
-    write_square_function(&mut mem[..]);
+    write_square_function(&mut mem);
 
     mem.into_executable().unwrap()
 }
