@@ -58,6 +58,10 @@ pub fn parse(filename: &str, source_text: &[u8]) -> Result<AbstractSyntaxTree, C
         })
     }
 
+    if labels.has_unmatched_brackets() {
+        return Err(location.into_error(Reason::TooManyOpenBrackets));
+    }
+
     Ok(AbstractSyntaxTree {
         statements: statements.into_iter().flatten().collect(),
     })
@@ -83,6 +87,10 @@ impl ConditionalStack {
             stack: Vec::new(),
             next_id: 0,
         }
+    }
+
+    pub fn has_unmatched_brackets(&self) -> bool {
+        self.stack.len() > 0
     }
 
     pub fn next(&mut self) -> ConditionalID {

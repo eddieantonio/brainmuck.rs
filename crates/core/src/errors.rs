@@ -17,7 +17,7 @@ pub struct Location {
 #[derive(Debug)]
 pub enum Reason {
     TooManyCloseBrackets,
-    NotEnoughCloseBrackets,
+    TooManyOpenBrackets,
 }
 
 impl CompilationError {
@@ -53,7 +53,7 @@ impl Reason {
         use Reason::*;
         match self {
             TooManyCloseBrackets => 0x001,
-            NotEnoughCloseBrackets => 0x002,
+            TooManyOpenBrackets => 0x002,
         }
     }
 
@@ -61,9 +61,7 @@ impl Reason {
         use Reason::*;
         match self {
             TooManyCloseBrackets => "too many ']' brackets. Check that each '[' has a matching ']'",
-            NotEnoughCloseBrackets => {
-                "too many '[' brackets. Check that each '[' has a matching ']'"
-            }
+            TooManyOpenBrackets => "too many '[' brackets. Check that each '[' has a matching ']'",
         }
     }
 }
@@ -86,7 +84,7 @@ impl fmt::Display for CompilationError {
 
         write!(
             f,
-            "error[{:04x}]:{} {}",
+            "error[BF{:04x}]:{} {}",
             self.message_identifier(),
             location,
             self.message()
