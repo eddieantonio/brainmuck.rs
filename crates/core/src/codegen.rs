@@ -45,7 +45,7 @@ impl CodeGenerator {
     pub fn compile(&mut self, cfg: &ControlFlowGraph) -> &[u8] {
         self.setup_stack_and_save_registers();
 
-        self.generate_code(&cfg);
+        self.generate_code(cfg);
         assert!(
             matches!(
                 cfg.last_instruction(),

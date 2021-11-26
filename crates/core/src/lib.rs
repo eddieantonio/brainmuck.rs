@@ -47,11 +47,11 @@ pub fn compile_to_native_code(ast: &AbstractSyntaxTree) -> CompiledProgram {
     let mut gen = CodeGenerator::new();
     let code = gen.compile(&ast_to_optimized_cfg(ast));
 
-    CompiledProgram::from_binary(&code)
+    CompiledProgram::from_binary(code)
 }
 
 /// Go from [AbstractSyntaxTree] straight to [ControlFlowGraph], with optimizations
 fn ast_to_optimized_cfg(ast: &AbstractSyntaxTree) -> ControlFlowGraph {
-    let initial_cfg = ir::lower(&ast);
+    let initial_cfg = ir::lower(ast);
     optimize::optimize(&initial_cfg)
 }

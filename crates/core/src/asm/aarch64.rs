@@ -33,7 +33,7 @@ pub struct WordOffset(i32);
 
 #[derive(Clone, Copy)]
 enum IncompleteInstruction {
-    CBZ,
+    Cbz,
     B,
 }
 
@@ -47,6 +47,9 @@ pub struct AArch64Assembly {
 }
 
 impl AArch64Assembly {
+    // I'm using bit groupings used in the ARM binary encoding spec, which are NOT 4 bit aligned!
+    #![allow(clippy::unusual_byte_groupings)]
+
     pub fn new() -> Self {
         AArch64Assembly {
             instr: Vec::new(),
@@ -73,7 +76,7 @@ impl AArch64Assembly {
             let offset = *target - source;
 
             let missing_bits = match instr {
-                IncompleteInstruction::CBZ => Self::patch_cbz(offset),
+                IncompleteInstruction::Cbz => Self::patch_cbz(offset),
                 IncompleteInstruction::B => Self::patch_b(offset),
             };
 
@@ -123,12 +126,12 @@ impl AArch64Assembly {
 
     /// Compare register and Branch if Zero
     pub fn cbz(&mut self, rt: W, label: Label) {
-        use IncompleteInstruction::CBZ;
+        use IncompleteInstruction::Cbz;
         asm!("cbz {}, {}", rt, label);
         //          sf ______ op              imm19    rt
         //                      23                5 4   0
         let base = 0b0_011010_0_0000000000000000000_00000;
-        self.emit_incomplete_branch(label, CBZ, base | rt.at(0..=4));
+        self.emit_incomplete_branch(label, Cbz, base | rt.at(0..=4));
     }
 
     fn patch_cbz(offset: WordOffset) -> u32 {

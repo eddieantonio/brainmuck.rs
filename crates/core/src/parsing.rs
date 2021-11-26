@@ -90,7 +90,7 @@ impl ConditionalStack {
     }
 
     pub fn has_unmatched_brackets(&self) -> bool {
-        self.stack.len() > 0
+        !self.stack.is_empty()
     }
 
     pub fn next(&mut self) -> ConditionalID {

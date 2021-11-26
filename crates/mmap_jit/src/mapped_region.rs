@@ -61,6 +61,11 @@ impl MappedRegion {
         self.len
     }
 
+    /// Return whether the size of this region is empty.
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
     /// Consumes the region and returns a writable region.
     pub fn into_writable(self) -> crate::Result<WritableRegion> {
         WritableRegion::from(self)

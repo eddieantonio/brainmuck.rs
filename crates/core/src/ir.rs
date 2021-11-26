@@ -47,7 +47,6 @@ impl ControlFlowGraph {
 
     pub fn last_instruction(&self) -> Option<ThreeAddressInstruction> {
         self.blocks()
-            .into_iter()
             .last()
             .and_then(|block| block.last_instruction())
     }
@@ -75,7 +74,7 @@ impl BasicBlock {
     /// Returns the last instruction in this block, or None if this block is empty.
     pub fn last_instruction(&self) -> Option<ThreeAddressInstruction> {
         let n = self.instructions.len();
-        self.instructions.get(n - 1).map(|x| *x)
+        self.instructions.get(n - 1).copied()
     }
 
     /// Replaces a basic block with a single no-op instruction to a branch with the given target.

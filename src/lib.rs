@@ -3,7 +3,7 @@ extern crate structopt;
 
 use std::error::Error;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use structopt::StructOpt;
 
 use brainmuck_core::BrainmuckProgram;
@@ -32,8 +32,8 @@ fn compile_program(opt: &Opt) -> Result<Box<dyn BrainmuckProgram>, Box<dyn Error
     }
 }
 
-fn from_path(path: &PathBuf) -> String {
-    path.clone()
+fn from_path(path: &Path) -> String {
+    path.to_path_buf()
         .into_os_string()
         .into_string()
         .unwrap_or_else(|_| String::from("<unknown>"))
