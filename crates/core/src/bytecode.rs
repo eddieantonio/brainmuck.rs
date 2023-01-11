@@ -69,6 +69,11 @@ impl BrainmuckProgram for InterpretedProgram {
                     }
                 }
                 BranchTo(target) => target.0,
+                Zero => {
+                    universe[current_address] = 0;
+
+                    program_counter + 1
+                }
                 Terminate => return,
             }
         }
@@ -86,6 +91,7 @@ pub enum Bytecode {
     BranchIfZero(BranchTarget),
     BranchTo(BranchTarget),
     NoOp,
+    Zero,
     Terminate,
 }
 
@@ -122,6 +128,7 @@ fn compile_cfg_to_bytecode(cfg: &ControlFlowGraph) -> Vec<Bytecode> {
                     incomplete_instructions.push((pc, label));
                     Bytecode::BranchTo(BranchTarget(0))
                 }
+                Zero => Bytecode::Zero,
                 NoOp => {
                     continue;
                 }
@@ -168,6 +175,7 @@ impl fmt::Display for Bytecode {
             GetChar => write!(f, "getchar [bp]"),
             BranchIfZero(target) => write!(f, "beq {}", target.0),
             BranchTo(target) => write!(f, "b {}", target.0),
+            Zero => write!(f, "zro"),
             NoOp => write!(f, "nop"),
             Terminate => write!(f, "ret"),
         }

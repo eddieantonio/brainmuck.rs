@@ -27,6 +27,7 @@ pub enum ThreeAddressInstruction {
     BranchIfZero(BlockLabel),
     BranchTo(BlockLabel),
     NoOp,
+    Zero,
     Terminate,
 }
 
@@ -105,7 +106,27 @@ pub fn lower(ast: &AbstractSyntaxTree) -> ControlFlowGraph {
 
     let mut associated_start_block: HashMap<ConditionalID, BlockLabel> = HashMap::new();
 
-    for &statement in ast.statements().iter() {
+    let mut i = 0;
+    let statements = &ast.statements();
+    while i < statements.len() {
+        // Look-ahead to see if we find «[-]».
+        // This can always be replaced with zeroing the current cell.
+        if i + 3 < statements.len()
+            && matches!(
+                statements[i..i + 3],
+                [
+                    Statement::StartConditional(_),
+                    Statement::DecrementVal,
+                    Statement::EndConditional(_)
+                ]
+            )
+        {
+            current_block_instrs.push(Zero);
+            i += 3;
+            continue;
+        }
+
+        let statement = statements[i];
         match statement {
             Statement::StartConditional(cond_id) => {
                 // We need to create a branch. This means a few things:
@@ -147,6 +168,7 @@ pub fn lower(ast: &AbstractSyntaxTree) -> ControlFlowGraph {
                 current_block_instrs.push(statement.try_into().expect("bad statement translation"));
             }
         }
+        i += 1;
     }
 
     // The final block should always terminate:
@@ -198,6 +220,7 @@ pub fn print_cfg(cfg: &ControlFlowGraph) {
                 BranchIfZero(BlockLabel(n)) => println!("\tbeq\t[p], L{}", n),
                 BranchTo(BlockLabel(n)) => println!("\tb\tL{}", n),
                 NoOp => println!("\tnop"),
+                Zero => println!("\tzero"),
                 Terminate => println!("\tterminate"),
             }
         }

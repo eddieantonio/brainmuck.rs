@@ -26,6 +26,7 @@ const LR: X = X(30);
 //
 // x31                - stack pointer or zero, depending on context
 const SP: X = X(31);
+const WZR: W = W(31);
 // see: https://en.wikipedia.org/wiki/Calling_convention#ARM_(A64)
 // also useful for addressing modes:
 // https://thinkingeek.com/2016/11/13/exploring-aarch64-assembler-chapter-5/
@@ -121,6 +122,9 @@ impl CodeGenerator {
         use ThreeAddressInstruction::*;
         match instr {
             NoOp => (),
+            Zero => {
+                self.asm.strb(WZR, ADDR, 0);
+            }
             ChangeAddr(x) => {
                 // FIXME: this is wrong; it should be using 64-bit add/sub
                 if x == 0 {
