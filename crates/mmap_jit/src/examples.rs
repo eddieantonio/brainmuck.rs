@@ -31,7 +31,7 @@ pub fn write_square_function(buffer: &mut [u8]) {
     };
 
     let n = instructions.len();
-    (&mut buffer[0..n]).copy_from_slice(&instructions);
+    buffer[0..n].copy_from_slice(&instructions);
 }
 
 /// Returns an [ExecutableRegion] with the program created by [write_square_function].

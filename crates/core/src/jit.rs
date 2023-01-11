@@ -15,7 +15,7 @@ impl CompiledProgram {
     /// Initializes a CompiledProgram from the passed binary machine code.
     pub fn from_binary(binary: &[u8]) -> CompiledProgram {
         let mut mem = WritableRegion::allocate(binary.len()).unwrap();
-        (&mut mem[0..binary.len()]).copy_from_slice(binary);
+        mem[0..binary.len()].copy_from_slice(binary);
 
         CompiledProgram {
             code: mem.into_executable().unwrap(),

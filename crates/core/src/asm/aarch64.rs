@@ -100,7 +100,7 @@ impl AArch64Assembly {
     fn set_instruction(&mut self, offset: WordOffset, instr: u32) {
         let n_bytes = offset.to_usize();
         let bytes = instr.to_le_bytes();
-        (&mut self.instr[n_bytes..(n_bytes + 4)]).copy_from_slice(&bytes);
+        self.instr[n_bytes..(n_bytes + 4)].copy_from_slice(&bytes);
     }
 
     /// Returns machine code.
